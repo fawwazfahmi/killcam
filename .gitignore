@@ -1,0 +1,26 @@
+# Rojo build output: rebuilt from src/ with `rojo build`
+build/
+*.rbxl
+*.rbxlx
+*.rbxl.lock
+*.rbxlx.lock
+sourcemap.json
+
+# Editor and merge leftovers
+*.tmp.*
+*.orig
+.vscode/
+.idea/
+
+# Python (tools/)
+__pycache__/
+*.pyc
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Secrets
+.env
+.env.*
