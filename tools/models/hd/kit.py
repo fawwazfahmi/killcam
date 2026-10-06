@@ -24,7 +24,7 @@ MATERIALS = {
     "Steel": {"color": (0.045, 0.047, 0.052), "metallic": 0.8, "roughness": 0.36},
     "Bare": {"color": (0.36, 0.37, 0.38), "metallic": 1.0, "roughness": 0.28},
     "Wood": {"color": (0.17, 0.052, 0.016), "metallic": 0.0, "roughness": 0.38},
-    "Polymer": {"color": (0.022, 0.022, 0.024), "metallic": 0.0, "roughness": 0.65},
+    "Polymer": {"color": (0.011, 0.011, 0.012), "metallic": 0.0, "roughness": 0.55},
 }
 
 

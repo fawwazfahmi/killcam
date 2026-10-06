@@ -77,6 +77,13 @@ local PLACEHOLDERS = {
 	},
 }
 
+-- Detailed models fall back to the block weapon of the same kind until they
+-- have been imported into Assets.
+local FALLBACK = {
+	AK47 = "Rifle",
+	HK416 = "Rifle",
+}
+
 local function customModel(name)
 	local assets = ReplicatedStorage:FindFirstChild("Assets")
 	local weapons = assets and assets:FindFirstChild("Weapons")
@@ -94,7 +101,7 @@ function WeaponModels.build(name)
 		return custom
 	end
 
-	local definition = PLACEHOLDERS[name]
+	local definition = PLACEHOLDERS[name] or PLACEHOLDERS[FALLBACK[name]]
 	local model = Instance.new("Model")
 	model.Name = name
 

@@ -62,7 +62,11 @@ end
 -- Builds the finished Model: an invisible root part at `frame` as PrimaryPart,
 -- plus every visible part of `imported`, coloured from the palette. Markers
 -- stay behind in `imported`.
-function Fit.assemble(imported, rootName, frame)
+--
+-- `detail`, for the high-detail weapons, is { finishes, parts } from
+-- HdWeapons: parts are coloured by their listed finish instead of by name, and
+-- get a "Group" attribute naming what they move with in animations.
+function Fit.assemble(imported, rootName, frame, detail)
 	local root = Instance.new("Part")
 	root.Name = rootName
 	root.Size = Vector3.new(0.2, 0.2, 0.2)
@@ -82,7 +86,11 @@ function Fit.assemble(imported, rootName, frame)
 		if not part:IsA("BasePart") or string.sub(part.Name, 1, 4) == "Mark" then
 			continue
 		end
-		local finish = Palette[part.Name]
+		local spec = detail and detail.parts[part.Name]
+		local finish = if spec then detail.finishes[spec.finish] else Palette[part.Name]
+		if spec then
+			part:SetAttribute("Group", spec.group)
+		end
 		if finish then
 			part.Color = Color3.fromRGB(table.unpack(finish.color))
 			part.Material = Enum.Material[finish.material]

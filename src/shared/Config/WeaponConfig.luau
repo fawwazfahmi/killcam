@@ -5,8 +5,8 @@ local WeaponConfig = {}
 
 -- Slots 1 to 3: what can be picked for each, and the order the menu lists them in.
 WeaponConfig.DefaultPrimary = "Rifle"
-WeaponConfig.Primaries = { Rifle = true, Smg = true, Sniper = true }
-WeaponConfig.PrimaryOrder = { "Rifle", "Smg", "Sniper" }
+WeaponConfig.Primaries = { Rifle = true, AK47 = true, HK416 = true, Smg = true, Sniper = true }
+WeaponConfig.PrimaryOrder = { "Rifle", "AK47", "HK416", "Smg", "Sniper" }
 
 WeaponConfig.DefaultSecondary = "Pistol"
 WeaponConfig.Secondaries = { Pistol = true }
@@ -74,6 +74,80 @@ WeaponConfig.Weapons = {
 				{ 0.14, -0.18 },
 				{ 0.14, 0.16 },
 				{ 0.14, 0.22 },
+			},
+		},
+	},
+
+	-- Hits harder than the KR-9 and fires a touch slower; the climb is steeper.
+	AK47 = {
+		kind = "Gun",
+		displayName = "AK-47",
+		note = "Hard-hitting, with a steep climb",
+		class = "Rifle",
+		model = "AK47",
+		automatic = true,
+		fireInterval = 0.105,
+		magazine = 30,
+		reserve = 90,
+		reloadTime = 2.4,
+		equipTime = 0.38,
+		range = 600,
+		damage = { Head = 120, UpperTorso = 31, LowerTorso = 31, Limb = 23 },
+		spread = { base = 0.55, bloomPerShot = 0.34, maxBloom = 3.8, recovery = 7 },
+		recoil = {
+			resetTime = 0.3,
+			recovery = 10,
+			loopFrom = 8,
+			pattern = {
+				{ 0.36, 0.00 },
+				{ 0.40, 0.05 },
+				{ 0.44, -0.05 },
+				{ 0.48, 0.10 },
+				{ 0.46, 0.14 },
+				{ 0.42, 0.18 },
+				{ 0.34, 0.20 },
+				{ 0.18, -0.18 },
+				{ 0.16, -0.24 },
+				{ 0.16, -0.20 },
+				{ 0.16, 0.18 },
+				{ 0.16, 0.24 },
+			},
+		},
+	},
+
+	-- Faster and flatter than the AK-47, for a little less damage per hit.
+	HK416 = {
+		kind = "Gun",
+		displayName = "HK416",
+		note = "Fast and steady",
+		class = "Rifle",
+		model = "HK416",
+		automatic = true,
+		fireInterval = 0.09,
+		magazine = 30,
+		reserve = 90,
+		reloadTime = 2.1,
+		equipTime = 0.33,
+		range = 600,
+		damage = { Head = 104, UpperTorso = 26, LowerTorso = 26, Limb = 19.5 },
+		spread = { base = 0.45, bloomPerShot = 0.26, maxBloom = 3.2, recovery = 8 },
+		recoil = {
+			resetTime = 0.3,
+			recovery = 11,
+			loopFrom = 8,
+			pattern = {
+				{ 0.26, 0.00 },
+				{ 0.30, 0.03 },
+				{ 0.33, -0.03 },
+				{ 0.36, 0.06 },
+				{ 0.36, 0.10 },
+				{ 0.32, 0.12 },
+				{ 0.26, 0.14 },
+				{ 0.13, -0.12 },
+				{ 0.12, -0.18 },
+				{ 0.12, -0.14 },
+				{ 0.12, 0.12 },
+				{ 0.12, 0.18 },
 			},
 		},
 	},
