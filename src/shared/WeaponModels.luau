@@ -82,6 +82,9 @@ local PLACEHOLDERS = {
 local FALLBACK = {
 	AK47 = "Rifle",
 	HK416 = "Rifle",
+	SCAR = "Rifle",
+	FAMAS = "Rifle",
+	ASVal = "Rifle",
 }
 
 local function customModel(name)
