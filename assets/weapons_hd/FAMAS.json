@@ -1,0 +1,71 @@
+{
+  "name": "FAMAS",
+  "studsPerMetre": 5.5,
+  "muzzle": [
+    0.0,
+    0.528,
+    -2.7445
+  ],
+  "parts": {
+    "Body": {
+      "finish": "Polymer",
+      "group": "Body",
+      "triangles": 346
+    },
+    "CarryHandle": {
+      "finish": "Polymer",
+      "group": "Body",
+      "triangles": 776
+    },
+    "Barrel": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 822
+    },
+    "Sights": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 408
+    },
+    "Bipod": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 412
+    },
+    "Grip": {
+      "finish": "Polymer",
+      "group": "Body",
+      "triangles": 328
+    },
+    "HandGuard": {
+      "finish": "Polymer",
+      "group": "Body",
+      "triangles": 264
+    },
+    "ButtPad": {
+      "finish": "Polymer",
+      "group": "Body",
+      "triangles": 188
+    },
+    "Trigger": {
+      "finish": "Steel",
+      "group": "Trigger",
+      "triangles": 132
+    },
+    "Magazine": {
+      "finish": "Steel",
+      "group": "Magazine",
+      "triangles": 540
+    },
+    "ChargingHandle": {
+      "finish": "Steel",
+      "group": "ChargingHandle",
+      "triangles": 108
+    },
+    "Bolt": {
+      "finish": "Bare",
+      "group": "Bolt",
+      "triangles": 108
+    }
+  }
+}

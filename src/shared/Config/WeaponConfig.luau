@@ -5,8 +5,8 @@ local WeaponConfig = {}
 
 -- Slots 1 to 3: what can be picked for each, and the order the menu lists them in.
 WeaponConfig.DefaultPrimary = "Rifle"
-WeaponConfig.Primaries = { Rifle = true, AK47 = true, HK416 = true, Smg = true, Sniper = true }
-WeaponConfig.PrimaryOrder = { "Rifle", "AK47", "HK416", "Smg", "Sniper" }
+WeaponConfig.Primaries = { Rifle = true, AK47 = true, HK416 = true, SCAR = true, FAMAS = true, ASVal = true, Smg = true, Sniper = true }
+WeaponConfig.PrimaryOrder = { "Rifle", "AK47", "HK416", "SCAR", "FAMAS", "ASVal", "Smg", "Sniper" }
 
 WeaponConfig.DefaultSecondary = "Pistol"
 WeaponConfig.Secondaries = { Pistol = true }

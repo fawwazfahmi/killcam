@@ -7,29 +7,12 @@ sights. Millimetres, bore on the Y axis, +Y toward the muzzle, +Z up, +X right.
 
 import math
 
+from kit import arc, rail
+
 NAME = "HK416"
 STUDS_PER_METRE = 5.5
 GRIP = (0, -96, -100)
 MUZZLE = (0, 540, 0)
-
-
-def rail(g, part, y0, y1, centre, normal, width=21):
-    """A Picatinny strip: base plus a tooth every 10 mm. `normal` is the
-    direction the rail faces: "up", "down", "right" or "left"."""
-    teeth = []
-    for k in range(int((y1 - y0 - 4) // 10)):
-        teeth.append(y0 + 7 + k * 10)
-    x, z = centre
-    if normal in ("up", "down"):
-        s = 1 if normal == "up" else -1
-        g.box(part, (x, (y0 + y1) / 2, z + s * 2), (width, y1 - y0, 4), bevel=0.6)
-        for y in teeth:
-            g.box(part, (x, y, z + s * 6), (width, 5, 4), bevel=0.5, segments=1)
-    else:
-        s = 1 if normal == "right" else -1
-        g.box(part, (x + s * 2, (y0 + y1) / 2, z), (4, y1 - y0, width), bevel=0.6)
-        for y in teeth:
-            g.box(part, (x + s * 6, y, z), (4, 5, width), bevel=0.5, segments=1)
 
 
 def build(g):
@@ -121,12 +104,8 @@ def build(g):
     g.slab(charging, [(-114, 12), (-104, 12), (-104, 24), (-114, 24)], 54, bevel=2.5, segments=3)  # T-handle
 
     # --- magazine: 30-round STANAG, slight curve low down -----------------
-    radius, top, length, steps = 820, (67, -40), 206, 20
-    span = length / radius
-    centre = [
-        (top[0] + radius * (1 - math.cos(span * i / steps)), top[1] - radius * math.sin(span * i / steps))
-        for i in range(steps + 1)
-    ]
+    centre = arc((67, -40), 820, 206, 20)
+    span, steps = 206 / 820, 20
     g.sweep(magazine, centre, lambda t: 31 - 1.5 * t, 23, bevel=2)
     for d in (-17, 0, 17):  # pressed ribs down each side
         rib = [(y + d * math.cos(span * i / steps), z - d * math.sin(span * i / steps) * 0 + 0)

@@ -24,6 +24,7 @@ MATERIALS = {
     "Steel": {"color": (0.045, 0.047, 0.052), "metallic": 0.8, "roughness": 0.36},
     "Bare": {"color": (0.36, 0.37, 0.38), "metallic": 1.0, "roughness": 0.28},
     "Wood": {"color": (0.17, 0.052, 0.016), "metallic": 0.0, "roughness": 0.38},
+    "Tan": {"color": (0.19, 0.13, 0.072), "metallic": 0.0, "roughness": 0.6},
     "Polymer": {"color": (0.011, 0.011, 0.012), "metallic": 0.0, "roughness": 0.55},
 }
 
@@ -275,6 +276,35 @@ class Gun:
             export_normals=True,
             export_materials="EXPORT",
         )
+
+
+def rail(g, part, y0, y1, centre, normal, width=21):
+    """A Picatinny strip: base plus a tooth every 10 mm. `normal` is the
+    direction the rail faces: "up", "down", "right" or "left"."""
+    teeth = []
+    for k in range(int((y1 - y0 - 4) // 10)):
+        teeth.append(y0 + 7 + k * 10)
+    x, z = centre
+    if normal in ("up", "down"):
+        s = 1 if normal == "up" else -1
+        g.box(part, (x, (y0 + y1) / 2, z + s * 2), (width, y1 - y0, 4), bevel=0.6)
+        for y in teeth:
+            g.box(part, (x, y, z + s * 6), (width, 5, 4), bevel=0.5, segments=1)
+    else:
+        s = 1 if normal == "right" else -1
+        g.box(part, (x + s * 2, (y0 + y1) / 2, z), (4, y1 - y0, width), bevel=0.6)
+        for y in teeth:
+            g.box(part, (x + s * 6, y, z), (4, 5, width), bevel=0.5, segments=1)
+
+
+def arc(top, radius, length, steps):
+    """Centreline for a magazine: starts at `top` heading straight down and
+    curves forward along a circle of `radius`."""
+    span = length / radius
+    return [
+        (top[0] + radius * (1 - math.cos(span * i / steps)), top[1] - radius * math.sin(span * i / steps))
+        for i in range(steps + 1)
+    ]
 
 
 def _smooth(bm):

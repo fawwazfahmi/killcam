@@ -30,6 +30,7 @@ FINISHES = {
     "Bare": ((150, 153, 158), "Metal"),
     "Wood": ((112, 50, 24), "Wood"),
     "Polymer": ((30, 30, 32), "SmoothPlastic"),
+    "Tan": ((135, 110, 80), "SmoothPlastic"),
 }
 
 

@@ -1,0 +1,81 @@
+{
+  "name": "SCAR",
+  "studsPerMetre": 5.5,
+  "muzzle": [
+    0.0,
+    0.55,
+    -3.179
+  ],
+  "parts": {
+    "UpperReceiver": {
+      "finish": "Tan",
+      "group": "Body",
+      "triangles": 184
+    },
+    "LowerReceiver": {
+      "finish": "Tan",
+      "group": "Body",
+      "triangles": 1252
+    },
+    "Rail": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 4964
+    },
+    "Barrel": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 1240
+    },
+    "Sights": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 916
+    },
+    "Stock": {
+      "finish": "Tan",
+      "group": "Body",
+      "triangles": 880
+    },
+    "ButtPad": {
+      "finish": "Polymer",
+      "group": "Body",
+      "triangles": 188
+    },
+    "StockHinge": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 108
+    },
+    "Grip": {
+      "finish": "Polymer",
+      "group": "Body",
+      "triangles": 440
+    },
+    "Trigger": {
+      "finish": "Steel",
+      "group": "Trigger",
+      "triangles": 148
+    },
+    "Selector": {
+      "finish": "Steel",
+      "group": "Selector",
+      "triangles": 524
+    },
+    "Magazine": {
+      "finish": "Polymer",
+      "group": "Magazine",
+      "triangles": 1320
+    },
+    "ChargingHandle": {
+      "finish": "Steel",
+      "group": "ChargingHandle",
+      "triangles": 108
+    },
+    "Bolt": {
+      "finish": "Bare",
+      "group": "Bolt",
+      "triangles": 108
+    }
+  }
+}
