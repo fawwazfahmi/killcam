@@ -25,6 +25,8 @@ MATERIALS = {
     "Bare": {"color": (0.36, 0.37, 0.38), "metallic": 1.0, "roughness": 0.28},
     "Wood": {"color": (0.17, 0.052, 0.016), "metallic": 0.0, "roughness": 0.38},
     "Tan": {"color": (0.19, 0.13, 0.072), "metallic": 0.0, "roughness": 0.6},
+    "Olive": {"color": (0.075, 0.095, 0.05), "metallic": 0.0, "roughness": 0.6},
+    "Lens": {"color": (0.02, 0.05, 0.09), "metallic": 0.4, "roughness": 0.04},
     "Polymer": {"color": (0.011, 0.011, 0.012), "metallic": 0.0, "roughness": 0.55},
 }
 
@@ -278,7 +280,7 @@ class Gun:
         )
 
 
-def rail(g, part, y0, y1, centre, normal, width=21):
+def rail(g, part, y0, y1, centre, normal="up", width=21):
     """A Picatinny strip: base plus a tooth every 10 mm. `normal` is the
     direction the rail faces: "up", "down", "right" or "left"."""
     teeth = []
@@ -305,6 +307,28 @@ def arc(top, radius, length, steps):
         (top[0] + radius * (1 - math.cos(span * i / steps)), top[1] - radius * math.sin(span * i / steps))
         for i in range(steps + 1)
     ]
+
+
+def scope(g, part, y0, y1, z, x=0.0, tube=15, objective=24, eyepiece=20, mounts=(), base=22, mount_x=0.0):
+    """A riflescope from the eyecup at `y0` to the objective at `y1`, bore of
+    the scope at height `z`. `mounts` are ring positions; the rings stand on a
+    base at height `base`, offset sideways by `mount_x` (side mounts)."""
+    length = y1 - y0
+    g.lathe(part, [(0, 0), (0, eyepiece - 3), (3, eyepiece), (58, eyepiece), (78, tube), (length - 95, tube),
+                   (length - 50, objective), (length, objective), (length, 0)], (x, y0, z), segments=32)
+    g.lathe(part, [(0, 0), (0, objective + 1.5), (10, objective + 1.5), (10, 0)], (x, y1 - 10, z), segments=32)
+    mid = y0 + length * 0.45
+    g.tube(part, (x, mid, z), (x, mid, z + tube + 16), 11, segments=20, bevel=1)  # elevation turret
+    g.tube(part, (x, mid, z), (x + tube + 16, mid, z), 11, segments=20, bevel=1)  # windage turret
+    g.box(part, (x, mid, z), (tube * 2 + 6, 34, tube * 2 + 6), bevel=5, segments=3)  # turret housing
+    lens = g.part(part + "Lens", "Lens")
+    g.tube(lens, (x, y1 - 1, z), (x, y1 + 0.8, z), objective - 3, segments=32)
+    g.tube(lens, (x, y0 - 0.8, z), (x, y0 + 1, z), eyepiece - 5, segments=24)
+    for y in mounts:
+        g.tube(part, (x, y - 7, z), (x, y + 7, z), tube + 3.5, segments=28, bevel=1)
+        top, bottom = z - tube, base
+        g.slab(part, [(y - 9, bottom), (y + 9, bottom), (y + 7, top + 2), (y - 7, top + 2)], 18,
+               x=(x + mount_x) / 2, bevel=1.5)
 
 
 def _smooth(bm):

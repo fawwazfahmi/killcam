@@ -1,0 +1,71 @@
+{
+  "name": "AWP",
+  "studsPerMetre": 5.5,
+  "muzzle": [
+    0.0,
+    0.572,
+    -4.642
+  ],
+  "parts": {
+    "Receiver": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 236
+    },
+    "Rail": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 1340
+    },
+    "Barrel": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 946
+    },
+    "Stock": {
+      "finish": "Olive",
+      "group": "Body",
+      "triangles": 1328
+    },
+    "ButtPad": {
+      "finish": "Polymer",
+      "group": "Body",
+      "triangles": 188
+    },
+    "Bipod": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 408
+    },
+    "Scope": {
+      "finish": "Polymer",
+      "group": "Body",
+      "triangles": 2116
+    },
+    "TriggerGuard": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 304
+    },
+    "Trigger": {
+      "finish": "Steel",
+      "group": "Trigger",
+      "triangles": 132
+    },
+    "Magazine": {
+      "finish": "Steel",
+      "group": "Magazine",
+      "triangles": 216
+    },
+    "Bolt": {
+      "finish": "Steel",
+      "group": "Bolt",
+      "triangles": 308
+    },
+    "ScopeLens": {
+      "finish": "Lens",
+      "group": "Body",
+      "triangles": 216
+    }
+  }
+}

@@ -1,0 +1,71 @@
+{
+  "name": "MSR",
+  "studsPerMetre": 5.5,
+  "muzzle": [
+    0.0,
+    0.55,
+    -4.488
+  ],
+  "parts": {
+    "Chassis": {
+      "finish": "Tan",
+      "group": "Body",
+      "triangles": 1144
+    },
+    "Rail": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 2924
+    },
+    "Barrel": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 698
+    },
+    "Stock": {
+      "finish": "Tan",
+      "group": "Body",
+      "triangles": 860
+    },
+    "ButtPad": {
+      "finish": "Polymer",
+      "group": "Body",
+      "triangles": 188
+    },
+    "StockHinge": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 180
+    },
+    "Grip": {
+      "finish": "Polymer",
+      "group": "Body",
+      "triangles": 440
+    },
+    "Scope": {
+      "finish": "Polymer",
+      "group": "Body",
+      "triangles": 2116
+    },
+    "Trigger": {
+      "finish": "Steel",
+      "group": "Trigger",
+      "triangles": 148
+    },
+    "Magazine": {
+      "finish": "Steel",
+      "group": "Magazine",
+      "triangles": 216
+    },
+    "Bolt": {
+      "finish": "Steel",
+      "group": "Bolt",
+      "triangles": 308
+    },
+    "ScopeLens": {
+      "finish": "Lens",
+      "group": "Body",
+      "triangles": 216
+    }
+  }
+}

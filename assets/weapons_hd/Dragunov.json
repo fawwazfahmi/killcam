@@ -1,0 +1,81 @@
+{
+  "name": "Dragunov",
+  "studsPerMetre": 5.5,
+  "muzzle": [
+    0.0,
+    0.506,
+    -4.9995
+  ],
+  "parts": {
+    "Receiver": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 428
+    },
+    "DustCover": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 836
+    },
+    "Barrel": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 748
+    },
+    "Fittings": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 704
+    },
+    "Stock": {
+      "finish": "Wood",
+      "group": "Body",
+      "triangles": 1172
+    },
+    "ButtPlate": {
+      "finish": "Polymer",
+      "group": "Body",
+      "triangles": 108
+    },
+    "Handguard": {
+      "finish": "Wood",
+      "group": "Body",
+      "triangles": 3448
+    },
+    "Scope": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 2428
+    },
+    "TriggerGuard": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 376
+    },
+    "Trigger": {
+      "finish": "Steel",
+      "group": "Trigger",
+      "triangles": 148
+    },
+    "Selector": {
+      "finish": "Steel",
+      "group": "Selector",
+      "triangles": 384
+    },
+    "Magazine": {
+      "finish": "Steel",
+      "group": "Magazine",
+      "triangles": 660
+    },
+    "Bolt": {
+      "finish": "Bare",
+      "group": "Bolt",
+      "triangles": 260
+    },
+    "ScopeLens": {
+      "finish": "Lens",
+      "group": "Body",
+      "triangles": 216
+    }
+  }
+}

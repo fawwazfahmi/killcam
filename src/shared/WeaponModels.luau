@@ -85,6 +85,10 @@ local FALLBACK = {
 	SCAR = "Rifle",
 	FAMAS = "Rifle",
 	ASVal = "Rifle",
+	Dragunov = "Sniper",
+	Scout = "Sniper",
+	AWP = "Sniper",
+	MSR = "Sniper",
 }
 
 local function customModel(name)

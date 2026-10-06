@@ -1,0 +1,66 @@
+{
+  "name": "Scout",
+  "studsPerMetre": 5.5,
+  "muzzle": [
+    0.0,
+    0.462,
+    -3.806
+  ],
+  "parts": {
+    "Receiver": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 200
+    },
+    "Rail": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 1520
+    },
+    "Barrel": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 312
+    },
+    "Stock": {
+      "finish": "Polymer",
+      "group": "Body",
+      "triangles": 844
+    },
+    "ButtPad": {
+      "finish": "Polymer",
+      "group": "Body",
+      "triangles": 188
+    },
+    "Scope": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 2116
+    },
+    "TriggerGuard": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 304
+    },
+    "Trigger": {
+      "finish": "Steel",
+      "group": "Trigger",
+      "triangles": 148
+    },
+    "Magazine": {
+      "finish": "Polymer",
+      "group": "Magazine",
+      "triangles": 108
+    },
+    "Bolt": {
+      "finish": "Steel",
+      "group": "Bolt",
+      "triangles": 296
+    },
+    "ScopeLens": {
+      "finish": "Lens",
+      "group": "Body",
+      "triangles": 216
+    }
+  }
+}

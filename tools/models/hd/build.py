@@ -31,6 +31,8 @@ FINISHES = {
     "Wood": ((112, 50, 24), "Wood"),
     "Polymer": ((30, 30, 32), "SmoothPlastic"),
     "Tan": ((135, 110, 80), "SmoothPlastic"),
+    "Olive": ((76, 90, 58), "SmoothPlastic"),
+    "Lens": ((30, 55, 90), "Glass"),
 }
 
 
