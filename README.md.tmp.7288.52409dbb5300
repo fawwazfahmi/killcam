@@ -1,0 +1,115 @@
+# TDM Core
+
+A team deathmatch for Roblox: weighted fast movement, hip-fire gunplay with
+recoil patterns, instant weapon switching and a low time-to-kill. All content
+is original; weapon models are block placeholders and the map is a grey-box
+blockout.
+
+Design: [docs/superpowers/specs/2026-10-06-tdm-core-loop-design.md](docs/superpowers/specs/2026-10-06-tdm-core-loop-design.md)
+
+## Setup (once)
+
+1. Install [Rokit](https://github.com/rojo-rbx/rokit), then from this folder:
+
+   ```
+   rokit init
+   rokit add rojo-rbx/rojo
+   rokit add lune-org/lune
+   rojo plugin install
+   ```
+
+2. Restart Roblox Studio so the Rojo plugin loads.
+
+## Run
+
+1. `rojo serve` in this folder.
+2. In Studio, open a new Baseplate place, open the Rojo plugin and press Connect.
+3. Test tab: set Clients and Servers to 2 players and press Start.
+
+To play a match alone, set `minPlayers = 1` in `src/shared/Config/MatchConfig.luau`.
+
+## Controls
+
+| Input | Action |
+|---|---|
+| W A S D, Space | Move, jump |
+| Ctrl or C (hold) | Crouch |
+| Left mouse | Fire, swing, throw |
+| Right mouse (hold) | Scope (sniper) |
+| 1 2 3 4, mouse wheel | Primary, pistol, knife, grenade |
+| R | Reload |
+| B | Swap rifle and sniper for the next spawn |
+| Tab | Scoreboard |
+
+## Tests
+
+```
+lune run tests/run
+```
+
+Covers the rules in `src/shared/Logic`: recoil, spread, damage, movement
+smoothing, hit validation, spawn choice and match state.
+
+## Tuning
+
+Every number that affects feel is in `src/shared/Config`. Change a value, let
+Rojo sync, and press Play again.
+
+## Models
+
+Weapons and map props are original designs written as code in
+`tools/models/weapons.py` and `tools/models/props.py`, sharing the finishes in
+`tools/models/palette.py`. To change one, edit it there and rebuild:
+
+```
+python tools/models/build.py
+python tools/models/check.py
+```
+
+This writes `assets/weapons/*.glb` and `assets/props/*.glb`, a `preview.png` in
+each folder, and the colour table the fit step uses. Needs Python with `numpy`
+and `Pillow`.
+
+To get them into the game:
+
+1. With Rojo connected, use **File > Import 3D** on the `.glb` files. Keep
+   **Merge Meshes** off and **Insert in Workspace** on.
+2. In the command bar, run:
+
+   ```
+   require(game.ServerStorage.Tools.FitWeapons)()
+   require(game.ServerStorage.Tools.FitProps)()
+   ```
+
+   These set scale, orientation and colours, then move each model to
+   `ReplicatedStorage.Assets.Weapons` or `ReplicatedStorage.Assets.Props`.
+3. Save the place. `Assets` lives in the place, not in this folder, so Rojo
+   never overwrites it.
+
+Without a model in `Assets` the game falls back to blocks: block weapons, and
+plain boxes for cover.
+
+## Map layout
+
+A map is a table of boxes in `src/server/Maps`. A box with `prop = "Name"` is
+drawn as that prop, stretched to the box, while the box itself stays as the
+invisible collision. `yaw` turns a box, `propTurn = true` lays the prop's long
+side along Z, and `post = true` stands a lamp on a pole.
+
+```
+python tools/maps/plan.py NightYard
+```
+
+draws `assets/maps/NightYard_plan.png` and checks that no spawn is blocked and
+that the two spawns connect at ground level.
+
+## Replacing placeholders
+
+- **Weapon models from elsewhere:** put a Model named `Rifle`, `Sniper`,
+  `Pistol`, `Knife` or `Grenade` in `ReplicatedStorage.Assets.Weapons`. Its
+  PrimaryPart sits at the grip with the barrel along -Z, and may hold an
+  Attachment named `Muzzle`.
+- **Map:** build a `Workspace.Map` folder with `Geometry`, `Spawns/Alpha`,
+  `Spawns/Bravo` and `Bounds`. When it exists, the blockout is not generated.
+
+Only use assets you made or are licensed to use.

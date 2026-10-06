@@ -1,0 +1,2 @@
+-- Replaces Roblox's default "Health" character script, which regenerates health.
+-- Health in this game only changes through CombatService.

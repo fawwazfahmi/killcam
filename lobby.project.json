@@ -1,0 +1,38 @@
+{
+  "name": "tdm-lobby",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "Shared": {
+        "$path": "src/shared"
+      }
+    },
+    "ServerScriptService": {
+      "Lobby": {
+        "$path": "src/lobby/server",
+        "MapBuilder": {
+          "$path": "src/server/MapBuilder.luau"
+        },
+        "ProfileStore": {
+          "$path": "src/server/ProfileStore.luau"
+        },
+        "Penthouse": {
+          "$path": "src/server/Maps/Penthouse.luau"
+        }
+      }
+    },
+    "StarterPlayer": {
+      "StarterPlayerScripts": {
+        "Lobby": {
+          "$path": "src/lobby/client",
+          "LoadoutMenu": {
+            "$path": "src/client/LoadoutMenu.luau"
+          },
+          "ShopMenu": {
+            "$path": "src/client/ShopMenu.luau"
+          }
+        }
+      }
+    }
+  }
+}
