@@ -102,7 +102,9 @@ def render(gun, path, samples=96):
             _wood_grain(material)
     low, high = _bounds(gun.objects)
     centre = (low + high) / 2
-    extent = max(high - low)
+    size = high - low
+    # Frame the width of the image: short, tall weapons need room top to bottom.
+    extent = max(size.y, size.z * 1600 / 760 * 1.15, size.x)
     _setup(scene, centre, extent, samples)
 
     side = path.with_name(path.stem + "_side.png")
@@ -110,7 +112,7 @@ def render(gun, path, samples=96):
     _shot(scene, side, centre + Vector((extent * 3, 0, 0)), centre, ortho_scale=extent * 1.08)
     _shot(
         scene, angle,
-        centre + Vector((extent * 1.15, extent * 0.85, extent * 0.55)), centre, lens=62,
+        centre + Vector((extent * 1.45, extent * 1.05, extent * 0.68)), centre, lens=62,
     )
 
     label = f"{gun.name}  -  {sum(gun.triangles().values())} triangles, {len(gun.objects)} parts"

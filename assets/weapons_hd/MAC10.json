@@ -1,0 +1,56 @@
+{
+  "name": "MAC10",
+  "studsPerMetre": 5.5,
+  "muzzle": [
+    0.0,
+    0.55,
+    -1.089
+  ],
+  "parts": {
+    "Receiver": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 1148
+    },
+    "Barrel": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 1076
+    },
+    "Stock": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 252
+    },
+    "Grip": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 484
+    },
+    "Trigger": {
+      "finish": "Steel",
+      "group": "Trigger",
+      "triangles": 172
+    },
+    "Selector": {
+      "finish": "Steel",
+      "group": "Selector",
+      "triangles": 108
+    },
+    "Magazine": {
+      "finish": "Steel",
+      "group": "Magazine",
+      "triangles": 216
+    },
+    "ChargingHandle": {
+      "finish": "Bare",
+      "group": "ChargingHandle",
+      "triangles": 152
+    },
+    "Bolt": {
+      "finish": "Bare",
+      "group": "Bolt",
+      "triangles": 108
+    }
+  }
+}

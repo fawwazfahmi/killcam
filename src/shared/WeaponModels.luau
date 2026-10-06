@@ -89,6 +89,9 @@ local FALLBACK = {
 	Scout = "Sniper",
 	AWP = "Sniper",
 	MSR = "Sniper",
+	MP5 = "Smg",
+	MAC10 = "Smg",
+	MP7 = "Smg",
 }
 
 local function customModel(name)

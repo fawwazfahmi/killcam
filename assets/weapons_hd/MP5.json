@@ -1,0 +1,71 @@
+{
+  "name": "MP5",
+  "studsPerMetre": 5.5,
+  "muzzle": [
+    0.0,
+    0.506,
+    -2.266
+  ],
+  "parts": {
+    "Receiver": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 904
+    },
+    "Barrel": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 434
+    },
+    "Sights": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 604
+    },
+    "Handguard": {
+      "finish": "Polymer",
+      "group": "Body",
+      "triangles": 448
+    },
+    "TriggerGroup": {
+      "finish": "Polymer",
+      "group": "Body",
+      "triangles": 908
+    },
+    "Stock": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 304
+    },
+    "ButtPad": {
+      "finish": "Polymer",
+      "group": "Body",
+      "triangles": 188
+    },
+    "Trigger": {
+      "finish": "Steel",
+      "group": "Trigger",
+      "triangles": 172
+    },
+    "Selector": {
+      "finish": "Steel",
+      "group": "Selector",
+      "triangles": 160
+    },
+    "Magazine": {
+      "finish": "Steel",
+      "group": "Magazine",
+      "triangles": 972
+    },
+    "ChargingHandle": {
+      "finish": "Steel",
+      "group": "ChargingHandle",
+      "triangles": 108
+    },
+    "Bolt": {
+      "finish": "Bare",
+      "group": "Bolt",
+      "triangles": 108
+    }
+  }
+}
