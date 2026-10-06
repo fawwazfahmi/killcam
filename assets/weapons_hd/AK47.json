@@ -1,0 +1,96 @@
+{
+  "name": "AK47",
+  "studsPerMetre": 5.5,
+  "muzzle": [
+    0.0,
+    0.55,
+    -3.465
+  ],
+  "parts": {
+    "Receiver": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 934
+    },
+    "DustCover": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 836
+    },
+    "Barrel": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 1696
+    },
+    "Fittings": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 644
+    },
+    "FrontSight": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 644
+    },
+    "RearSight": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 616
+    },
+    "Stock": {
+      "finish": "Wood",
+      "group": "Body",
+      "triangles": 360
+    },
+    "ButtPlate": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 108
+    },
+    "Grip": {
+      "finish": "Wood",
+      "group": "Body",
+      "triangles": 528
+    },
+    "UpperHandguard": {
+      "finish": "Wood",
+      "group": "Body",
+      "triangles": 448
+    },
+    "LowerHandguard": {
+      "finish": "Wood",
+      "group": "Body",
+      "triangles": 452
+    },
+    "CleaningRod": {
+      "finish": "Bare",
+      "group": "Body",
+      "triangles": 100
+    },
+    "TriggerGuard": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 488
+    },
+    "Trigger": {
+      "finish": "Steel",
+      "group": "Trigger",
+      "triangles": 148
+    },
+    "Selector": {
+      "finish": "Steel",
+      "group": "Selector",
+      "triangles": 384
+    },
+    "Magazine": {
+      "finish": "Steel",
+      "group": "Magazine",
+      "triangles": 1392
+    },
+    "Bolt": {
+      "finish": "Bare",
+      "group": "Bolt",
+      "triangles": 260
+    }
+  }
+}

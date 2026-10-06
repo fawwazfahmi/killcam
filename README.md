@@ -137,6 +137,24 @@ To get them into the game:
 Without a model in `Assets` the game falls back to blocks: block weapons, and
 plain boxes for cover.
 
+### High-detail weapons
+
+`tools/models/hd/` builds detailed weapons in Blender's Python module, modelled
+from real dimensions in millimetres. Each design is one file in
+`tools/models/hd/guns/`.
+
+```
+pip install bpy numpy pillow
+python tools/models/hd/build.py            every weapon
+python tools/models/hd/build.py AK47       one weapon
+```
+
+This writes `assets/weapons_hd/<Name>.glb`, a studio render `<Name>.png` and
+`<Name>.json`, which lists the parts, their finish and the animation group each
+moves with (`Magazine`, `Bolt`, `Trigger`, `Selector`, ...). Moving parts are
+separate meshes, and every mesh is UV-unwrapped at one texture repeat per
+100 mm so tiling skins land at the same size on every weapon.
+
 ## Maps
 
 There are four maps, all original layouts. Choose one with `map` in
