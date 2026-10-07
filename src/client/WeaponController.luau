@@ -439,7 +439,7 @@ end
 -- Shot is active.
 local function onDamaged(_amount, _position, flinch)
 	if flinch and flinch > 0 and isAlive() then
-		deps.camera.kick(flinch, (math.random() - 0.5) * flinch, 14, 0.05)
+		deps.camera.flinch(flinch, (math.random() - 0.5) * flinch)
 	end
 end
 
