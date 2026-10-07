@@ -35,11 +35,19 @@ local SAVE_EVERY = 60 -- seconds between saves of everybody here, which also kee
 -- A profile left open by a server that has not saved it for this long is
 -- taken to be abandoned (the server crashed), and can be opened elsewhere.
 local STALE_AFTER = SAVE_EVERY * 2 + 30
+-- The save as a player leaves is the one that must not be lost, so it is tried
+-- again if the data store refuses it. Seconds to wait before each further try.
+local LAST_SAVE_RETRIES = { 1, 2, 4 }
+-- A server that is shutting down is given 30 seconds. This much of it is
+-- spent waiting for the last saves to be stored.
+local CLOSE_WITHIN = 25
 
 local store = nil
 local profiles = {} -- [player] = profile
 local canSave = {} -- [player] = true once their profile was read, or found not to exist
 local held = {} -- [player] = the rentals they have taken into the match they are in (see Economy)
+local leaving = {} -- [player] = true while their last save is being stored
+local saving = 0 -- saves on their way to the data store right now
 local loaded = Instance.new("BindableEvent")
 
 -- Fires with (player, profile) when a player's profile is ready.
@@ -95,16 +103,9 @@ function ProfileStore.push(player, earned)
 	})
 end
 
--- Yields. Safe to call from task.spawn. Returns whether the profile is now
--- safely stored; false as well when there is nowhere to store it. `closing`
--- is for the last save as a player leaves: it marks the profile as no longer
--- open here, so the server they are going to can open it at once.
-function ProfileStore.save(player, closing)
-	local profile = profiles[player]
-	if not store or not profile or not canSave[player] then
-		return false
-	end
-	Economy.prune(profile, os.time())
+-- One try at storing a profile. Returns whether the data store answered, and
+-- whether it took the profile: it does not if another server has opened it since.
+local function write(player, profile, closing)
 	local written = false
 	local ok, problem = pcall(store.UpdateAsync, store, keyFor(player), function(saved)
 		written = Session.mayWrite(saved, SERVER)
@@ -117,7 +118,43 @@ function ProfileStore.save(player, closing)
 	end)
 	if not ok then
 		warn(`ProfileStore: could not save {player.Name}: {problem}`)
-	elseif not written then
+	end
+	return ok, written
+end
+
+-- Yields. Safe to call from task.spawn. Returns whether the profile is now
+-- safely stored; false as well when there is nowhere to store it. `closing`
+-- is for the last save as a player leaves: it marks the profile as no longer
+-- open here, so the server they are going to can open it at once, and it is
+-- tried again if the data store refuses it.
+function ProfileStore.save(player, closing)
+	local profile = profiles[player]
+	if not store or not profile or not canSave[player] then
+		return false
+	end
+	if closing then
+		if leaving[player] then
+			return false -- their last save is already on its way
+		end
+		leaving[player] = true
+	end
+	Economy.prune(profile, os.time())
+
+	saving += 1
+	local ok, written = write(player, profile, closing)
+	if closing then
+		for _, wait in LAST_SAVE_RETRIES do
+			if ok then
+				break
+			end
+			task.wait(wait)
+			ok, written = write(player, profile, closing)
+		end
+		leaving[player] = nil
+	end
+	saving -= 1
+
+	if ok and not written then
 		warn(`ProfileStore: {player.Name}'s profile is open on another server; this one will not save it again`)
 		canSave[player] = nil
 	end
@@ -259,11 +296,20 @@ function ProfileStore.init()
 		canSave[player] = nil
 		held[player] = nil
 	end)
+	-- The server is going: a shutdown, an update, or its last player leaving.
+	-- It stays up until this returns, so wait for every save to be stored,
+	-- those already started as players left included.
 	game:BindToClose(function()
 		for _, player in Players:GetPlayers() do
 			task.spawn(ProfileStore.save, player, true)
 		end
-		task.wait(2) -- give those saves a moment before the server goes
+		local waited = 0
+		while saving > 0 and waited < CLOSE_WITHIN do
+			waited += task.wait(0.1)
+		end
+		if saving > 0 then
+			warn(`ProfileStore: the server closed with {saving} saves still not stored`)
+		end
 	end)
 
 	-- Saving everybody now and then loses less if the server dies, and is what

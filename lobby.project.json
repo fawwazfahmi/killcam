@@ -16,6 +16,9 @@
         "ProfileStore": {
           "$path": "src/server/ProfileStore.luau"
         },
+        "Travel": {
+          "$path": "src/server/Travel.luau"
+        },
         "Penthouse": {
           "$path": "src/server/Maps/Penthouse.luau"
         }

@@ -3,13 +3,25 @@
 
 return {
 	-- Place ids, from the Creator Dashboard, once both places are published
-	-- under one experience. While either is 0, queues fill but nobody is sent.
+	-- under one experience. While either is 0, queues fill and matches are
+	-- made, but nobody is sent, and this lobby is matched only with itself.
 	matchPlaceId = 0,
 	lobbyPlaceId = 0,
 
 	-- Once a queue has enough players it waits this long for more before it
 	-- launches. A full queue launches at once.
 	gatherTime = 10,
+
+	-- There are as many copies of the lobby as the players need, and those in
+	-- different copies are matched with each other. Each lobby lists who it
+	-- has queued in a shared record, one per mode (see Shared.Logic.Pool).
+	pool = {
+		store = "MatchPool",
+		lifetime = 300, -- seconds a pool is kept after the last lobby looked at it
+		checkEvery = 2, -- seconds between a lobby with players queued looking at the pool
+		lobbyLasts = 15, -- seconds a lobby's list is believed after it last looked
+		matchLasts = 45, -- seconds a match stays in the pool for its lobbies to read
+	},
 
 	-- Where the lobby leaves a match's settings for the match server to read,
 	-- and how long they are kept (seconds).

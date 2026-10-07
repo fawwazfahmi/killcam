@@ -34,6 +34,7 @@ local Ammo = require("../src/shared/Logic/Ammo")
 local Spectate = require("../src/shared/Logic/Spectate")
 local Icons = require("../src/shared/Config/Icons")
 local Backfill = require("../src/shared/Logic/Backfill")
+local Pool = require("../src/shared/Logic/Pool")
 local ProgressConfig = require("../src/shared/Config/ProgressConfig")
 local Rank = require("../src/shared/Logic/Rank")
 local Prestige = require("../src/shared/Logic/Prestige")
@@ -1758,6 +1759,211 @@ test("a squad is never split between matches or teams", function()
 	equal(Queue.pick(tdm, { 3, 2 }, true), nil, "five who will not split: no match yet")
 	equal(#Queue.pick(LobbyConfig.modes.FFA, { 3, 1 }, true).groups, 2, "a free-for-all just takes them all")
 	equal(LobbyConfig.squad.size <= Queue.capacity(tdm) / 2, true, "a full squad fits on one team")
+end)
+
+---------------------------------------------------------------- Matching across lobbies
+
+local POOL = LobbyConfig.pool
+
+local function pickerFor(rules)
+	return function(sizes, gathered)
+		return Queue.pick(rules, sizes, gathered)
+	end
+end
+
+-- A lobby's list for the pool: one group for each size given, numbered from
+-- `first`, all queued at `since`.
+local function queued(first, since, ...)
+	local groups = {}
+	for place, size in { ... } do
+		groups[place] = { n = first + place - 1, size = size, since = since }
+	end
+	return groups
+end
+
+-- What a pool comes back as after the trip through the shared store, which
+-- keeps it as JSON: nothing may depend on anything JSON would lose.
+local function stored(pool)
+	return serde.decode("json", serde.encode("json", pool))
+end
+
+test("the pool's timings leave every lobby the time to read it", function()
+	equal(POOL.lobbyLasts >= POOL.checkEvery * 4, true, "a lobby is not dropped for one slow look")
+	equal(POOL.matchLasts >= POOL.lobbyLasts * 2, true, "a match outlasts the lobbies' looks at it")
+	equal(POOL.lifetime > POOL.matchLasts, true, "and the pool outlasts its matches")
+	equal(POOL.matchLasts < LobbyConfig.settingsLifetime, true, "a match's settings outlast it too")
+end)
+
+test("players waiting in different lobbies are put in one match", function()
+	local tdm = pickerFor(LobbyConfig.modes.TDM)
+	local gather = LobbyConfig.gatherTime
+
+	-- Two players in each of two lobbies: neither could make 2v2 alone.
+	local pool = stored(Pool.refresh(nil, "east", queued(1, 1000, 1, 1), 1000, POOL, tdm))
+	equal(Pool.count(pool), 2, "two listed")
+	equal(pool.gathering, nil, "not enough to start the gather time")
+	equal(Pool.plan(pool, tdm, 1000 + gather, gather), nil, "and no match, however long they wait")
+
+	pool = stored(Pool.refresh(pool, "west", queued(1, 1002, 1, 1), 1002, POOL, tdm))
+	equal(Pool.count(pool), 4, "four listed between them")
+	equal(pool.gathering, 1002, "the gather time starts when there are enough")
+	equal(Pool.plan(pool, tdm, 1003, gather), nil, "still gathering")
+
+	-- Each lobby keeps looking; the gather time is not started again by that.
+	pool = stored(Pool.refresh(pool, "east", queued(1, 1000, 1, 1), 1004, POOL, tdm))
+	equal(pool.gathering, 1002, "looking again does not restart it")
+
+	local plan = Pool.plan(pool, tdm, 1002 + gather, gather)
+	equal(plan ~= nil, true, "once gathered, a match")
+	equal(plan.players, 4, "of all four")
+	equal(Pool.involves(plan, "east") and Pool.involves(plan, "west"), true, "from both lobbies")
+	equal(Pool.involves(plan, "north"), false, "and no other")
+	local sides = { 0, 0 }
+	for _, group in plan.groups do
+		sides[group.side] += group.size
+	end
+	equal(sides[1], 2, "two on one side")
+	equal(sides[2], 2, "two on the other")
+
+	local made, went = Pool.commit(pool, plan, "code-1", 1013)
+	equal(went, true, "the match is made")
+	pool = stored(made)
+	equal(Pool.count(pool), 0, "nobody is left waiting")
+	equal(pool.gathering, nil, "and the gather time is over")
+
+	-- Each lobby finds its own groups in the match, and where to send them.
+	for _, lobby in { "east", "west" } do
+		local mine = Pool.mine(pool, lobby)
+		equal(#mine, 1, lobby .. " has one match to send to")
+		equal(mine[1].code, "code-1", lobby .. " is told which server")
+		equal(#mine[1].groups, 2, lobby .. " sends both its players")
+	end
+	equal(#Pool.mine(pool, "north"), 0, "a lobby with nobody in it has nothing to do")
+
+	-- A lobby that has not sent its players yet still has them queued. Listing
+	-- them again must not put them back in the pool.
+	pool = stored(Pool.refresh(pool, "east", queued(1, 1000, 1, 1), 1014, POOL, tdm))
+	equal(Pool.count(pool), 0, "players in a match are not waiting")
+	equal(#Pool.mine(pool, "east"), 1, "and the match is still there to be read")
+end)
+
+test("a full match goes at once, and the longest wait goes first", function()
+	local ffa = pickerFor(LobbyConfig.modes.FFA)
+	local capacity = Queue.capacity(LobbyConfig.modes.FFA)
+	local gather = LobbyConfig.gatherTime
+
+	-- One more player than a match holds, spread over three lobbies.
+	local early = table.create(capacity - 3, 1)
+	local pool = Pool.refresh(nil, "west", queued(1, 500, table.unpack(early)), 500, POOL, ffa)
+	pool = Pool.refresh(pool, "east", queued(1, 501, 1, 1, 1), 501, POOL, ffa)
+	pool = Pool.refresh(pool, "north", queued(7, 502, 1), 502, POOL, ffa)
+
+	local plan = Pool.plan(pool, ffa, 502, gather)
+	equal(plan ~= nil, true, "no waiting for the gather time")
+	equal(plan.players, capacity, "a full match")
+	equal(Pool.involves(plan, "north"), false, "whoever queued last waits for the next")
+	equal(plan.groups[1].side, nil, "a free-for-all has no sides")
+
+	pool = Pool.commit(pool, plan, "code", 502)
+	equal(Pool.count(pool), 1, "one player still waiting")
+	equal(Pool.waiting(pool)[1].lobby, "north", "the one who queued last")
+	equal(Pool.waiting(pool)[1].n, 7, "known by the number their lobby gave them")
+end)
+
+test("two lobbies making a match out of the same players: only one does", function()
+	local ffa = pickerFor(LobbyConfig.modes.FFA)
+	local gather = LobbyConfig.gatherTime
+	local pool = Pool.refresh(nil, "east", queued(1, 100, 1), 100, POOL, ffa)
+	pool = Pool.refresh(pool, "west", queued(1, 100, 1), 100, POOL, ffa)
+
+	-- Both look at the same moment and plan the same match.
+	local fromEast = Pool.plan(pool, ffa, 100 + gather, gather)
+	local fromWest = Pool.plan(pool, ffa, 100 + gather, gather)
+	equal(fromEast.groups[1].lobby, fromWest.groups[1].lobby, "they plan it the same way round")
+
+	local made, went = Pool.commit(pool, fromEast, "east-code", 111)
+	equal(went, true, "the first to write makes the match")
+	local again, second = Pool.commit(made, fromWest, "west-code", 111)
+	equal(second, false, "the second finds the players taken")
+	equal(again, nil, "and stores nothing")
+	equal(#made.matches, 1, "so there is one match")
+	equal(made.matches[1].code, "east-code", "on the first lobby's server")
+
+	equal(select(2, Pool.commit(nil, fromEast, "code", 111)), false, "a pool that has gone makes no match")
+end)
+
+test("a squad stays whole and on one side, whichever lobbies the others are in", function()
+	local tdm = pickerFor(LobbyConfig.modes.TDM)
+	local gather = LobbyConfig.gatherTime
+	-- A squad of three in one lobby; three alone in two others.
+	local pool = Pool.refresh(nil, "east", queued(4, 200, 3), 200, POOL, tdm)
+	pool = Pool.refresh(pool, "west", queued(1, 201, 1, 1), 201, POOL, tdm)
+	equal(Pool.plan(pool, tdm, 300, gather), nil, "three and two cannot make even sides")
+	pool = Pool.refresh(pool, "north", queued(1, 202, 1), 202, POOL, tdm)
+
+	local plan = Pool.plan(pool, tdm, 202 + gather, gather)
+	equal(plan.players, 6, "3v3")
+	local squadSide, others = nil, 0
+	for _, group in plan.groups do
+		if group.size == 3 then
+			squadSide = group.side
+		end
+	end
+	for _, group in plan.groups do
+		if group.size == 1 then
+			equal(group.side ~= squadSide, true, "everyone else is against the squad")
+			others += 1
+		end
+	end
+	equal(others, 3, "three of them")
+end)
+
+test("a group that leaves the queue, and a lobby that stops looking, drop out of the pool", function()
+	local ffa = pickerFor(LobbyConfig.modes.FFA)
+	local pool = Pool.refresh(nil, "east", queued(1, 100, 1, 2), 100, POOL, ffa)
+	pool = Pool.refresh(pool, "west", queued(1, 100, 1), 100, POOL, ffa)
+	equal(Pool.count(pool), 4, "four listed")
+
+	-- The squad of two in the east leaves the queue.
+	pool = Pool.refresh(pool, "east", queued(1, 100, 1), 102, POOL, ffa)
+	equal(Pool.count(pool), 2, "they are no longer listed")
+
+	-- The east's last player leaves too: it lists nothing, and is gone.
+	pool = stored(Pool.refresh(pool, "east", {}, 104, POOL, ffa))
+	equal(pool.lobbies.east, nil, "a lobby with nobody queued is not in the pool")
+	equal(pool.gathering, nil, "one player is not a match, so the gather time stops")
+
+	-- The west lobby crashes: it never says it has gone.
+	local later = 100 + POOL.lobbyLasts
+	pool = Pool.refresh(pool, "north", queued(1, later, 1), later, POOL, ffa)
+	equal(Pool.count(pool), 2, "it is believed for a while")
+	pool = Pool.refresh(pool, "north", queued(1, later, 1), later + 1, POOL, ffa)
+	equal(Pool.count(pool), 1, "and then dropped, with whoever it had listed")
+	equal(Pool.plan(pool, ffa, later + 100, LobbyConfig.gatherTime), nil, "so nobody is matched with players who are not coming")
+end)
+
+test("a match is cleared out of the pool once every lobby has had the time to read it", function()
+	local ffa = pickerFor(LobbyConfig.modes.FFA)
+	local gather = LobbyConfig.gatherTime
+	local pool = Pool.refresh(nil, "east", queued(1, 100, 1, 1), 100, POOL, ffa)
+	pool = Pool.commit(pool, Pool.plan(pool, ffa, 100 + gather, gather), "code", 110)
+	equal(#pool.matches, 1, "made")
+
+	pool = Pool.refresh(pool, "west", queued(1, 120, 1), 110 + POOL.matchLasts, POOL, ffa)
+	equal(#pool.matches, 1, "kept for as long as it lasts")
+	pool = Pool.refresh(pool, "west", queued(1, 120, 1), 110 + POOL.matchLasts + 1, POOL, ffa)
+	equal(#pool.matches, 0, "then cleared")
+	equal(Pool.count(pool), 1, "without touching who is waiting")
+
+	-- Nothing the rules are given is changed by them: the store may run them twice.
+	local before = serde.encode("json", pool)
+	local now = 110 + POOL.matchLasts + 2
+	local joined = Pool.refresh(pool, "east", queued(9, now, 1), now, POOL, ffa)
+	equal(serde.encode("json", pool), before, "listing leaves the pool it was handed as it was")
+	before = serde.encode("json", joined)
+	local plan = Pool.plan(joined, ffa, now + gather, gather)
+	equal(select(2, Pool.commit(joined, plan, "code-2", now + gather)), true, "a second match is made")
+	equal(serde.encode("json", joined), before, "and so does making a match")
 end)
 
 ---------------------------------------------------------------- Rewards for taking part

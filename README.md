@@ -141,6 +141,16 @@ lune run tests/run
 Covers the rules in `src/shared/Logic`: recoil, spread, damage, movement
 smoothing, hit validation, spawn choice and match state.
 
+```
+lune run tests/matchmaking
+```
+
+Runs the lobby's real queue service on several pretend lobby servers sharing
+one pretend store, including a thousand runs with the lobbies out of step and
+every call taking a different time, and checks who is sent where. It stands in
+for everything Roblox provides, so it shows the service asks for things in the
+right order, not that the real store or teleports work.
+
 ## Tuning
 
 Every number that affects feel is in `src/shared/Config`. Change a value, let
@@ -359,8 +369,23 @@ the queue. The rules are `src/shared/Logic/Squad.luau` and `Queue.pick`.
 To set it up, publish both places under one experience, switch on **Enable
 Studio Access to API Services**, and put the two place ids in
 `src/shared/Config/LobbyConfig.luau`. Until then the lobby works, but a full
-queue reports that the match place is not set up. Queues are per lobby server.
-Teleports, reserved servers and saved profiles do not work in a Studio test.
+queue reports that the match place is not set up. Teleports, reserved servers
+and saved profiles do not work in a Studio test.
+
+There are as many copies of the lobby as the players need, and players in
+different copies are matched with each other. Each lobby lists who it has
+queued in a record they all share, one per mode, and looks at it every couple
+of seconds; whichever lobby sees that a match can be made reserves the server
+and writes the match down, and every lobby sends its own players to it. A
+lobby that stops looking is dropped from the record after 15 seconds. The
+rules are `src/shared/Logic/Pool.luau`; the timings are `pool` in
+`LobbyConfig.luau`.
+
+A teleport that fails is tried again (`src/server/Travel.luau`). When a match
+ends its server sends everyone to the lobby every 15 seconds until they have
+gone, and after a minute removes whoever is left with a message, since joining
+again puts them in the lobby. A server that is closing waits for every
+profile to be stored before it goes, and tries a refused save again.
 
 The Penthouse layout is `src/server/Maps/Penthouse.luau`: a runway of dark
 stone from the arrival lift to the match lift, with the bar, the lounge, the

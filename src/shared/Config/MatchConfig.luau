@@ -19,6 +19,14 @@ return {
 	-- offered to the lobby's queue. If one side has nobody at all for this many
 	-- seconds, the side still here wins.
 	forfeitAfter = 45,
+	-- When a match from the lobby is over, everyone is sent back there. Anybody
+	-- still on the match server is sent again every `retryEvery` seconds, and
+	-- after `giveUpAfter` seconds of that is removed with `message`.
+	lobbyReturn = {
+		retryEvery = 15,
+		giveUpAfter = 60,
+		message = "The match is over, but the lobby could not be reached. Join again to go back to it.",
+	},
 	spawnProtection = 2,
 	maxHealth = 100,
 	corpseTime = 5, -- seconds a body stays before it is removed

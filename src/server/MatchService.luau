@@ -6,7 +6,6 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
-local TeleportService = game:GetService("TeleportService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local LobbyConfig = require(Shared.Config.LobbyConfig)
@@ -17,6 +16,7 @@ local MatchState = require(Shared.Logic.MatchState)
 local Remotes = require(Shared.Remotes)
 
 local MatchSettings = require(script.Parent.MatchSettings)
+local Travel = require(script.Parent.Travel)
 
 local MatchService = {}
 
@@ -41,6 +41,7 @@ local changed = Instance.new("BindableEvent")
 local waited = 0
 local finished = false -- a match has been played to the end on this server
 local abandonedFor = 0 -- seconds only one side has had anybody on it
+local returning = false -- the lobby's match is over and this server is sending everyone back
 
 -- Fires when a new match begins. SpawnService resets stats and respawns everyone.
 MatchService.Started = started.Event
@@ -217,6 +218,9 @@ local function playersCounted(dt)
 		-- drops back to waiting.
 		return if present > 0 then math.max(present, MatchConfig.minPlayers) else 0
 	end
+	if returning then
+		return 0 -- whoever is still here is on their way out, not starting another match
+	end
 	waited = if present > 0 then waited + dt else 0
 	local everyoneHere = present >= MatchSettings.current().expected
 	local longEnough = waited >= MatchConfig.warmupTime and present >= MatchConfig.minPlayers
@@ -251,14 +255,38 @@ local function abandoned(dt)
 	return if abandonedFor >= MatchConfig.forfeitAfter then last else nil
 end
 
--- After a match the lobby set up, everyone goes back to the lobby.
+-- After a match the lobby set up, everyone goes back to the lobby, and the
+-- server plays nothing more. It keeps sending for as long as anybody is here:
+-- a teleport can fail, and somebody who was on their way in when the match
+-- ended arrives after everyone else has gone. A player who still cannot be
+-- sent after `giveUpAfter` is removed with a message, since joining the game
+-- again puts them in the lobby, which is better than being left here.
 local function returnToLobby()
-	if not MatchSettings.current().fromLobby or LobbyConfig.lobbyPlaceId == 0 then
+	if returning or not MatchSettings.current().fromLobby or LobbyConfig.lobbyPlaceId == 0 then
 		return
 	end
-	local ok, problem = pcall(TeleportService.TeleportAsync, TeleportService, LobbyConfig.lobbyPlaceId, Players:GetPlayers())
-	if not ok then
-		warn(`MatchService: could not send players back to the lobby: {problem}`)
+	returning = true
+	local back = MatchConfig.lobbyReturn
+	local askedAt = {} -- [player] = when this server first tried to send them
+	while true do
+		local now = os.clock()
+		local going, stillAsked = {}, {}
+		for _, player in Players:GetPlayers() do
+			stillAsked[player] = askedAt[player] or now
+			if now - stillAsked[player] >= back.giveUpAfter then
+				player:Kick(back.message)
+			else
+				table.insert(going, player)
+			end
+		end
+		askedAt = stillAsked
+		if #going > 0 then
+			local ok, problem = Travel.send(LobbyConfig.lobbyPlaceId, going)
+			if not ok then
+				warn(`MatchService: could not send players back to the lobby: {problem}`)
+			end
+		end
+		task.wait(back.retryEvery)
 	end
 end
 
