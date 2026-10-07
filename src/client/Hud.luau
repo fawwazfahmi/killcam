@@ -416,6 +416,12 @@ end
 
 local function setMatch(snapshot)
 	match = snapshot
+	if snapshot.mode == "RANGE" then
+		-- The test range keeps no score and has no clock.
+		scoreLabel.Text = "TEST RANGE"
+		statusLabel.Text = ""
+		return
+	end
 	local minutes = math.floor(snapshot.timeLeft / 60)
 	local seconds = snapshot.timeLeft % 60
 	if snapshot.mode == "FFA" then

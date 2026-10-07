@@ -1,4 +1,4 @@
--- Runs inside Roblox Studio, against either built place, through
+-- Runs inside Roblox Studio, against any of the three built places, through
 -- run-in-roblox (see the README). The unit tests cover the rules; this covers
 -- what only Roblox can answer: do the fonts, materials and properties this
 -- project asks for exist, does every module load, and does every map build.
@@ -31,13 +31,16 @@ local function expect(condition, message)
 end
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
--- The match place keeps its code under Server, the lobby under Lobby.
+-- The match place keeps its code under Server, the lobby under Lobby and the
+-- test range under Range.
 local Server = ServerScriptService:FindFirstChild("Server")
 local Lobby = ServerScriptService:FindFirstChild("Lobby")
-local code = Server or Lobby
-expect(code ~= nil, "neither place's server code is here")
+local Range = ServerScriptService:FindFirstChild("Range")
+local code = Server or Lobby or Range
+expect(code ~= nil, "no place's server code is here")
+local place = if Server then "match" elseif Lobby then "lobby" else "range"
 
-print(`=== studio smoke test: the {if Server then "match" else "lobby"} place`)
+print(`=== studio smoke test: the {place} place`)
 
 local Theme = require(Shared.Config.Theme)
 local MapBuilder = require(code:FindFirstChild("MapBuilder", true))
@@ -99,7 +102,7 @@ local function loadAll(root, label)
 	end
 end
 loadAll(Shared, "Shared")
-loadAll(code, if Server then "Server" else "Lobby")
+loadAll(code, if Server then "Server" elseif Lobby then "Lobby" else "Range")
 if ServerStorage:FindFirstChild("Tools") then
 	loadAll(ServerStorage.Tools, "Tools")
 end
@@ -119,7 +122,7 @@ if ServerStorage:FindFirstChild("Tools") then
 end
 
 -- 4. Every weapon's block placeholder builds, and carries what the game wants.
-if Server then
+if Server or Range then
 	local WeaponConfig = require(Shared.Config.WeaponConfig)
 	local WeaponModels = require(Shared.WeaponModels)
 	for name, config in WeaponConfig.Weapons do
@@ -134,14 +137,16 @@ if Server then
 end
 
 -- 5. Every map builds, with the folders the rest of the game looks for.
--- The match place keeps its layouts in a Maps folder; the lobby has only the
--- one, beside its own code.
+-- The match place keeps its layouts in a Maps folder; the lobby and the range
+-- have only the one each, beside their own code.
 local layouts = {}
 local folder = code:FindFirstChild("Maps")
 if folder then
 	layouts = folder:GetChildren()
 elseif code:FindFirstChild("Penthouse") then
 	layouts = { code.Penthouse }
+elseif code:FindFirstChild("FiringRange") then
+	layouts = { code.FiringRange }
 end
 local function buildMap(name, layout)
 	local old = workspace:FindFirstChild("Map")
@@ -248,6 +253,226 @@ for _, module in layouts do
 			expect(#backdrop:GetChildren() > 100, "the skyline is nearly empty")
 			expect(Lighting:FindFirstChildOfClass("Atmosphere") ~= nil, "no Atmosphere")
 			print(`      {module.Name}: {#backdrop:GetChildren()} skyline parts`)
+		end)
+	end
+end
+
+-- 6. The test range: its signs, its dummies, and what a hit does to one. No
+--    player is here to shoot, so the hits are handed to a dummy directly, the
+--    way CombatService hands it one that has passed every check, and what it
+--    would have sent to the shooter is caught and read.
+if Range then
+	local layout = require(Range.FiringRange)
+	local ArmorConfig = require(Shared.Config.ArmorConfig)
+	local MatchConfig = require(Shared.Config.MatchConfig)
+	local MovementConfig = require(Shared.Config.MovementConfig)
+	local RangeConfig = require(Shared.Config.RangeConfig)
+	local WeaponConfig = require(Shared.Config.WeaponConfig)
+	local Damage = require(Shared.Logic.Damage)
+	local Loadout = require(Shared.Logic.Loadout)
+	local Remotes = require(Shared.Remotes)
+	local CombatService = require(Range.CombatService)
+	local DummyService = require(Range.DummyService)
+	local Signs = require(Range.Signs)
+
+	check("the range's signs are written", function()
+		Signs.build(layout)
+		local written = 0
+		for _, sign in workspace.Map.Props:GetChildren() do
+			if sign.Name == "Sign" then
+				local face = sign:FindFirstChildOfClass("SurfaceGui")
+				expect(face ~= nil, "a sign has no face")
+				local words = face:FindFirstChildOfClass("TextLabel")
+				expect(words ~= nil and #words.Text > 0, "a sign says nothing")
+				expect(not sign.CanCollide and not sign.CanQuery, "a sign would stop a player or a shot")
+				written += 1
+			end
+		end
+		expect(written == #layout.signs + #layout.drops, `{#layout.signs + #layout.drops} signs asked for, {written} written`)
+	end)
+
+	check("each landing of the drop tower says what the fall costs", function()
+		local costs = {}
+		for _, sign in workspace.Map.Props:GetChildren() do
+			local words = sign.Name == "Sign" and sign.SurfaceGui:GetChildren()
+			for _, label in words or {} do
+				if label:IsA("TextLabel") and (string.find(label.Text, "HP") or label.Text == "NO DAMAGE") then
+					table.insert(costs, label.Text)
+				end
+			end
+		end
+		expect(#costs == #layout.drops, `{#layout.drops} landings, {#costs} costs`)
+		print("      drops: " .. table.concat(costs, " | "))
+	end)
+
+	-- Catches what a dummy would send to players.
+	local sent = {}
+	for _, name in { "HitConfirm", "RangeHit", "KillFeed", "ShotFired" } do
+		Remotes[name] = {
+			FireClient = function(_, _who, ...)
+				table.insert(sent, { name = name, args = { ... } })
+			end,
+			FireAllClients = function(_, ...)
+				table.insert(sent, { name = name, args = { ... } })
+			end,
+		}
+	end
+	local function last(name)
+		for index = #sent, 1, -1 do
+			if sent[index].name == name then
+				return sent[index].args
+			end
+		end
+		return nil
+	end
+
+	local built = false
+	check("a dummy stands at every post, the size of a player", function()
+		DummyService.init(layout)
+		local folder = workspace:FindFirstChild("Dummies")
+		expect(folder ~= nil, "no Dummies folder")
+		expect(#folder:GetChildren() == #layout.dummies, `{#layout.dummies} posts, {#folder:GetChildren()} dummies`)
+		for _, model in folder:GetChildren() do
+			for _, name in { "Humanoid", "HumanoidRootPart", "Head", "UpperTorso", "LowerTorso", "RightHand", "Tag" } do
+				expect(model:FindFirstChild(name) ~= nil, `a dummy has no {name}`)
+			end
+			for _, entry in RangeConfig.aims do
+				expect(model:FindFirstChild(entry.part) ~= nil, `a dummy has no {entry.part} to aim at`)
+			end
+			expect(type(model:GetAttribute("Dummy")) == "number", "a dummy is not marked as one")
+			expect(model.HumanoidRootPart.Anchored, "a dummy standing still is not held in place")
+			expect(model.Humanoid.Health == MatchConfig.maxHealth, "a dummy is not at full health")
+			-- Feet on the ground, head where a player's is.
+			local low, high = math.huge, -math.huge
+			for _, part in model:GetChildren() do
+				if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+					low = math.min(low, part.Position.Y - part.Size.Y / 2)
+					high = math.max(high, part.Position.Y + part.Size.Y / 2)
+				end
+			end
+			expect(math.abs(low) < 0.4, `a dummy's feet are {low} studs off the ground`)
+			expect(high > 4.5 and high < 6.5, `a dummy is {high} studs tall`)
+		end
+		local one = folder:GetChildren()[1]
+		print(`      a dummy: root {one.HumanoidRootPart.Position.Y} up, {#one:GetChildren()} children`)
+		built = true
+	end)
+
+	if built then
+		local shooter = { Name = "Tester" }
+		local rifle = WeaponConfig.Weapons.M16
+		local target = CombatService.targets()[1]
+		local id = target.id
+		local function strike(zone, amount)
+			local raw = if amount then amount else Damage.gun(rifle, zone)
+			local dealt = if amount then amount else Loadout.damage(target.stats, rifle.class, zone, raw)
+			target.hit(shooter, "M16", dealt, { zone = zone, raw = raw, headshot = zone == "Head", distance = 15, at = target.root.Position })
+			return raw, dealt
+		end
+
+		check("every dummy is registered as something to shoot", function()
+			expect(#CombatService.targets() == #layout.dummies, "the dummies are not all targets")
+			expect(target.root ~= nil and target.root.Name == "HumanoidRootPart", "a target has no root")
+			expect(target.alive(), "a fresh dummy is not alive")
+		end)
+
+		check("a hit takes health off, is reported in full, and heeds armour", function()
+			local raw, dealt = strike("Head")
+			local helmet = ArmorConfig.helmet[ArmorConfig.defaults.helmet]
+			expect(dealt == raw * (helmet.headScale or 1), `a headshot of {raw} became {dealt}`)
+			expect(target.humanoid.Health == MatchConfig.maxHealth - dealt, `health is {target.humanoid.Health}`)
+			local report = last("RangeHit")[1]
+			expect(report.target == id and report.weapon == "M16" and report.zone == "Head", "the report names the wrong thing")
+			expect(report.raw == raw and report.amount == dealt, "the report has the wrong damage")
+			expect(report.left == target.humanoid.Health and not report.lethal, "the report has the wrong health")
+			local confirm = last("HitConfirm")
+			expect(confirm[1] == true and confirm[2] == false, "the hit marker was not told of a headshot")
+			print(`      M16 to the head of a new dummy: {raw} before armour, {dealt} after`)
+		end)
+
+		check("a dummy can be stripped, and only set to what exists", function()
+			expect(DummyService.set(id, "helmet", ""), "taking the helmet off was refused")
+			expect(target.stats.headScale == 1, "a bare head is still protected")
+			expect(not DummyService.set(id, "helmet", "Plate"), "body armour was accepted as a helmet")
+			expect(not DummyService.set(id, "weapon", "Frag"), "a grenade was accepted as a gun")
+			expect(DummyService.set("all", "body", "Deflector"), "setting every dummy was refused")
+			for _, other in CombatService.targets() do
+				expect(other.stats.classScale.Sniper == ArmorConfig.body.Deflector.classScale.Sniper, "a dummy did not change")
+			end
+			expect(string.find(target.wearing.Text, "DEFLECTOR") ~= nil, "the tag does not say what it wears")
+		end)
+
+		check("a dummy told to stay up takes a killing hit and is whole again", function()
+			DummyService.set(id, "dies", false)
+			strike("Plain", 500)
+			expect(last("RangeHit")[1].lethal, "the hit was not reported as a kill")
+			expect(last("HitConfirm")[2] == true, "no kill mark for it")
+			expect(target.humanoid.Health == MatchConfig.maxHealth, "it is not back at full health")
+			expect(target.alive(), "it died")
+		end)
+
+		check("a dummy told to die does, and is in the kill feed", function()
+			DummyService.set(id, "dies", true)
+			strike("Plain", 500)
+			expect(target.humanoid.Health == 0 and not target.alive(), "it is still alive")
+			local feed = last("KillFeed")
+			expect(feed ~= nil and feed[1] == "Tester" and feed[3] == "M16", "the kill feed was not told")
+		end)
+
+		check("standing them all up brings a dead dummy back", function()
+			DummyService.standAll()
+			expect(target.alive() and target.humanoid.Health == MatchConfig.maxHealth, "it is not back")
+			expect(target.model.Parent == workspace.Dummies, "its new body is not on the range")
+			expect(#workspace.Dummies:GetChildren() == #layout.dummies, "a body was left behind")
+		end)
+
+		check("a dummy crouches, walks and takes up a gun", function()
+			local standing = target.root.Position.Y
+			DummyService.set(id, "crouched", true)
+			expect(math.abs(standing - target.root.Position.Y - MovementConfig.crouchHipDrop) < 0.01, "it did not get lower")
+			DummyService.set(id, "crouched", false)
+
+			DummyService.set(id, "moves", true)
+			expect(not target.root.Anchored, "a walking dummy is still held in place")
+			expect(target.humanoid.WalkSpeed == MovementConfig.runSpeed, "it does not walk at a player's speed")
+			DummyService.set(id, "moves", false)
+			expect(target.root.Anchored, "it did not stop")
+
+			DummyService.set(id, "weapon", "AK47")
+			local held = target.model:FindFirstChild("HeldWeapon")
+			expect(held ~= nil and held.PrimaryPart ~= nil, "it holds nothing")
+			expect(target.model:GetAttribute("Weapon") == WeaponConfig.Weapons.AK47.model, "its shots would make no sound")
+			expect(target.gun ~= nil and target.gun.mag == WeaponConfig.Weapons.AK47.magazine, "its gun is not loaded")
+			DummyService.set(id, "weapon", "")
+			expect(target.model:FindFirstChild("HeldWeapon") == nil and target.gun == nil, "it did not put the gun down")
+		end)
+
+		check("every dummy setting on the panel is one the server accepts", function()
+			local fields = { helmet = { "" }, body = { "" }, weapon = { "" }, aim = {}, dies = { true, false }, moves = { true, false }, crouched = { true, false } }
+			for _, slot in { "helmet", "body" } do
+				for _, key in ArmorConfig.order[slot] do
+					table.insert(fields[slot], key)
+				end
+			end
+			for _, list in { WeaponConfig.PrimaryOrder, WeaponConfig.SecondaryOrder } do
+				for _, name in list do
+					table.insert(fields.weapon, name)
+				end
+			end
+			for _, entry in RangeConfig.aims do
+				table.insert(fields.aim, entry.name)
+			end
+			local tried = 0
+			for field, values in fields do
+				for _, value in values do
+					expect(DummyService.set(id, field, value), `{field} = {tostring(value)} was refused`)
+					tried += 1
+				end
+			end
+			for field, value in { weapon = "", moves = false, crouched = false, dies = true } do
+				DummyService.set(id, field, value)
+			end
+			print(`      {tried} settings tried on a dummy`)
 		end)
 	end
 end

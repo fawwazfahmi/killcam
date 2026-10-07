@@ -12,7 +12,14 @@ local ExpiredNotice = require(script.ExpiredNotice)
 local StreetLife = require(script.StreetLife)
 
 ShopMenu.start()
-LoadoutMenu.start({ shop = ShopMenu })
+LoadoutMenu.start({
+	link = {
+		label = "OPEN THE SHOP",
+		open = function()
+			ShopMenu.setOpen(true)
+		end,
+	},
+})
 Panels.start()
 ExpiredNotice.start()
 StreetLife.start()

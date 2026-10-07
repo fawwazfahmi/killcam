@@ -5,6 +5,13 @@ local TweenService = game:GetService("TweenService")
 
 local Effects = {}
 
+local DEFAULT_IMPACT_LIFE = 0.08
+
+local impactLife = DEFAULT_IMPACT_LIFE -- seconds a bullet mark lasts
+local impacts = Instance.new("Folder") -- only this player's game has it
+impacts.Name = "Impacts"
+impacts.Parent = workspace
+
 local function ghostPart()
 	local part = Instance.new("Part")
 	part.Anchored = true
@@ -36,8 +43,18 @@ function Effects.impact(position)
 	part.Color = Color3.fromRGB(255, 240, 200)
 	part.Size = Vector3.new(0.3, 0.3, 0.3)
 	part.Position = position
-	part.Parent = workspace
-	Debris:AddItem(part, 0.08)
+	part.Parent = impacts
+	Debris:AddItem(part, impactLife)
+end
+
+-- How long a bullet mark lasts: a blink, unless told otherwise. The test
+-- range makes them stay, so a spray can be read off a wall. Nil puts it back.
+function Effects.setImpactLife(seconds)
+	impactLife = seconds or DEFAULT_IMPACT_LIFE
+end
+
+function Effects.clearImpacts()
+	impacts:ClearAllChildren()
 end
 
 function Effects.explosion(position, radius)

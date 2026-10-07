@@ -84,6 +84,36 @@ local killedEvent = Instance.new("BindableEvent")
 -- victim just before: { { player, weapon } }.
 CombatService.Killed = killedEvent.Event
 
+-- Things that can be hurt besides players. A match has none. The test range
+-- registers its dummies here, so that they are shot, stabbed and blown up by
+-- the same code, after the same checks, as a player is.
+--   find(part)  the target a body part belongs to, or nil
+--   all()       every target there is
+-- A target is {
+--   root     its HumanoidRootPart
+--   stats    what its armour adds up to (see Loadout.stats)
+--   alive()  whether it can be hurt right now
+--   hit(attacker, weaponName, amount, detail)
+--            takes the damage. `detail` is { zone, raw, headshot, distance, at }:
+--            `raw` is the damage before armour and `at` where it landed
+-- }
+local targets = {
+	find = function(_part)
+		return nil
+	end,
+	all = function()
+		return {}
+	end,
+}
+
+function CombatService.setTargets(source)
+	targets = source
+end
+
+function CombatService.targets()
+	return targets.all()
+end
+
 local hurtBy = {} -- [victim] = { [attacker] = { at = clock, weapon = name } }: who has hurt them, and when last
 
 -- Everybody but the killer who hurt `victim` recently enough to share in it.
@@ -100,6 +130,15 @@ local function assistsOn(victim, killer)
 	return assists
 end
 
+-- How far being hit knocks a player's aim, in degrees: nothing while a Cryo
+-- Shot is holding it steady.
+function CombatService.flinchFor(victim, headshot)
+	if LoadoutService.isSteady(victim) then
+		return 0
+	end
+	return if headshot then WeaponConfig.Flinch.head else WeaponConfig.Flinch.body
+end
+
 function CombatService.applyDamage(victim, amount, attacker, weaponName, headshot)
 	local _, humanoid = CombatService.bodyOf(victim)
 	if not humanoid or amount <= 0 then
@@ -114,11 +153,7 @@ function CombatService.applyDamage(victim, amount, attacker, weaponName, headsho
 		hits[attacker] = { at = os.clock(), weapon = weaponName }
 	end
 
-	-- Being hit knocks the victim's aim, unless a Cryo Shot is holding it steady.
-	local flinch = 0
-	if attacker ~= victim and not LoadoutService.isSteady(victim) then
-		flinch = if headshot then WeaponConfig.Flinch.head else WeaponConfig.Flinch.body
-	end
+	local flinch = if attacker ~= victim then CombatService.flinchFor(victim, headshot) else 0
 
 	local attackerRoot = attacker.Character and attacker.Character:FindFirstChild("HumanoidRootPart")
 	Remotes.Damaged:FireClient(victim, amount, attackerRoot and attackerRoot.Position or nil, flinch)
@@ -219,14 +254,15 @@ local function onFireShot(player, origin, endPosition, hitPart)
 	end
 
 	local victim = hitPart and victimOf(hitPart, player)
-	if not victim then
+	local target = if hitPart and not victim then targets.find(hitPart) else nil
+	if not victim and not target then
 		return
 	end
 
 	local valid = HitValidation.validateHit(Validation, {
-		targetAlive = CombatService.bodyOf(victim) ~= nil,
-		sameTeam = not TeamService.areEnemies(player, victim),
-		protected = LoadoutService.isProtected(victim),
+		targetAlive = if victim then CombatService.bodyOf(victim) ~= nil else target.alive(),
+		sameTeam = victim ~= nil and not TeamService.areEnemies(player, victim),
+		protected = victim ~= nil and LoadoutService.isProtected(victim),
 		origin = origin,
 		hitPosition = endPosition,
 		targetPosition = hitPart.Position,
@@ -238,7 +274,18 @@ local function onFireShot(player, origin, endPosition, hitPart)
 	end
 
 	local zone = Damage.zoneForPart(hitPart.Name)
-	local amount = Loadout.damage(LoadoutService.get(victim).stats, config.class, zone, Damage.gun(config, zone))
+	local raw = Damage.gun(config, zone)
+	if target then
+		target.hit(player, name, Loadout.damage(target.stats, config.class, zone, raw), {
+			zone = zone,
+			raw = raw,
+			headshot = zone == "Head",
+			distance = (endPosition - origin).Magnitude,
+			at = endPosition,
+		})
+		return
+	end
+	local amount = Loadout.damage(LoadoutService.get(victim).stats, config.class, zone, raw)
 	CombatService.applyDamage(victim, amount, player, name, zone == "Head")
 end
 
@@ -275,15 +322,21 @@ local function onMeleeSwing(player, targetPart)
 	LoadoutService.endProtection(player)
 
 	local victim = targetPart and victimOf(targetPart, player)
-	if not victim then
+	local target = if targetPart and not victim then targets.find(targetPart) else nil
+	if not victim and not target then
 		return
 	end
-	local victimCharacter, _, victimRoot = CombatService.bodyOf(victim)
+	local victimCharacter, _, victimRoot
+	if victim then
+		victimCharacter, _, victimRoot = CombatService.bodyOf(victim)
+	else
+		victimRoot = target.root
+	end
 
 	local valid = HitValidation.validateHit(Validation, {
-		targetAlive = victimCharacter ~= nil,
-		sameTeam = not TeamService.areEnemies(player, victim),
-		protected = LoadoutService.isProtected(victim),
+		targetAlive = if victim then victimCharacter ~= nil else target.alive(),
+		sameTeam = victim ~= nil and not TeamService.areEnemies(player, victim),
+		protected = victim ~= nil and LoadoutService.isProtected(victim),
 		origin = head.Position,
 		hitPosition = targetPart.Position,
 		targetPosition = targetPart.Position,
@@ -295,6 +348,17 @@ local function onMeleeSwing(player, targetPart)
 	end
 
 	local amount = Damage.knife(config, root.Position, victimRoot.Position, victimRoot.CFrame.LookVector)
+	if target then
+		target.hit(player, name, amount, {
+			-- A knife does not care what the target wears, only which way it faces.
+			zone = if amount == config.backDamage and amount ~= config.frontDamage then "Back" else "Front",
+			raw = amount,
+			headshot = false,
+			distance = (victimRoot.Position - root.Position).Magnitude,
+			at = targetPart.Position,
+		})
+		return
+	end
 	CombatService.applyDamage(victim, amount, player, name, false)
 end
 

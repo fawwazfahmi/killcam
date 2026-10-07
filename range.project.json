@@ -1,0 +1,60 @@
+{
+  "name": "tdm-range",
+  "tree": {
+    "$className": "DataModel",
+    "ReplicatedStorage": {
+      "Shared": {
+        "$path": "src/shared"
+      }
+    },
+    "ServerScriptService": {
+      "Range": {
+        "$path": "src/range/server",
+        "MapBuilder": {
+          "$path": "src/server/MapBuilder.luau"
+        },
+        "FiringRange": {
+          "$path": "src/server/Maps/FiringRange.luau"
+        },
+        "LoadoutService": {
+          "$path": "src/server/LoadoutService.luau"
+        },
+        "CombatService": {
+          "$path": "src/server/CombatService.luau"
+        },
+        "GrenadeService": {
+          "$path": "src/server/GrenadeService.luau"
+        },
+        "TacticalService": {
+          "$path": "src/server/TacticalService.luau"
+        },
+        "DropService": {
+          "$path": "src/server/DropService.luau"
+        },
+        "SpawnService": {
+          "$path": "src/server/SpawnService.luau"
+        }
+      }
+    },
+    "StarterPlayer": {
+      "StarterPlayerScripts": {
+        "Client": {
+          "$path": "src/client",
+          "Range": {
+            "$path": "src/range/client"
+          }
+        }
+      },
+      "StarterCharacterScripts": {
+        "Health": {
+          "$path": "src/character/Health.server.luau"
+        }
+      }
+    },
+    "Players": {
+      "$properties": {
+        "CharacterAutoLoads": false
+      }
+    }
+  }
+}

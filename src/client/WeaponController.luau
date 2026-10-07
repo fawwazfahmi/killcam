@@ -208,13 +208,14 @@ local function cast(origin, direction, range)
 	return nil
 end
 
--- A body part directly inside another player's character, or nil.
+-- A body part directly inside another player's character, or inside one of
+-- the test range's dummies, or nil.
 local function characterPart(result)
 	if not result then
 		return nil
 	end
 	local character = result.Instance.Parent
-	if character and Players:GetPlayerFromCharacter(character) then
+	if character and (Players:GetPlayerFromCharacter(character) or character:GetAttribute("Dummy")) then
 		return result.Instance
 	end
 	return nil
@@ -425,9 +426,10 @@ local function onInputChanged(input, processed)
 	end
 end
 
+-- `shooter` is a player, or on the test range the dummy that fired.
 local function onShotFired(shooter, origin, endPosition)
 	local from = origin
-	local character = shooter and shooter.Character
+	local character = shooter and (if shooter:IsA("Player") then shooter.Character else shooter)
 	local held = character and character:FindFirstChild("HeldWeapon")
 	if held and held.PrimaryPart then
 		from = held.PrimaryPart.Position

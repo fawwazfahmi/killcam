@@ -1,6 +1,9 @@
 -- Unit tests for the pure game rules. Run outside Studio with:  lune run tests/run
 
+local fs = require("@lune/fs")
+local luau = require("@lune/luau")
 local process = require("@lune/process")
+local serde = require("@lune/serde")
 
 local WeaponConfig = require("../src/shared/Config/WeaponConfig")
 local MovementConfig = require("../src/shared/Config/MovementConfig")
@@ -38,6 +41,11 @@ local Squad = require("../src/shared/Logic/Squad")
 local Session = require("../src/shared/Logic/Session")
 local ControlsConfig = require("../src/shared/Config/ControlsConfig")
 local SoundConfig = require("../src/shared/Config/SoundConfig")
+local RangeConfig = require("../src/shared/Config/RangeConfig")
+local Admin = require("../src/shared/Logic/Admin")
+local Dummy = require("../src/shared/Logic/Dummy")
+local Readout = require("../src/shared/Logic/Readout")
+local FiringRange = require("../src/server/Maps/FiringRange")
 
 local Weapons = WeaponConfig.Weapons
 local Validation = WeaponConfig.Validation
@@ -2378,6 +2386,339 @@ test("a weapon change that cannot be paid for does not happen at all", function(
 	equal(got.nade, "Frag", "and the old grenade: it is all or nothing")
 	equal(got.boots, "Runner", "but the rest of the loadout is as asked")
 	equal(wanted.primary, "MSR", "and what was asked for is not altered")
+end)
+
+---------------------------------------------------------------- The test range
+
+test("only the owner, the listed and a Studio test get into the range", function()
+	local config = { admins = { 77 }, groupRank = 255 }
+	local owned = { userId = 5, studio = false, creatorType = "User", creatorId = 5 }
+	equal(Admin.allowed(config, owned), true, "the owner")
+	equal(Admin.allowed(config, with(owned, { userId = 6 })), false, "somebody else")
+	equal(Admin.allowed(config, with(owned, { userId = 77 })), true, "somebody listed")
+	equal(Admin.allowed(config, with(owned, { userId = 6, studio = true })), true, "anybody, in a Studio test")
+	equal(Admin.allowed(config, { userId = 0, studio = false, creatorType = "User", creatorId = 0 }), false, "an unpublished place has no owner")
+
+	local group = { userId = 6, studio = false, creatorType = "Group", creatorId = 900, groupRank = 255 }
+	equal(Admin.allowed(config, group), true, "the owner of the group that owns it")
+	equal(Admin.allowed(config, with(group, { groupRank = 254 })), false, "a member of lower rank")
+	equal(Admin.allowed(config, with(group, { userId = 900, groupRank = 0 })), false, "a user whose id happens to be the group's")
+	equal(Admin.allowed(RangeConfig, with(owned, { userId = 6 })), false, "the real list lets no stranger in")
+end)
+
+test("the range's settings are complete", function()
+	local seen = {}
+	for _, cheat in RangeConfig.cheats do
+		equal(type(cheat.name), "string", "a switch's name")
+		equal(seen[cheat.name], nil, "one switch called " .. cheat.name)
+		seen[cheat.name] = true
+		equal(#cheat.title > 0 and #cheat.note > 0, true, cheat.name .. " is described")
+	end
+	local zones = {}
+	for _, aim in RangeConfig.aims do
+		zones[Damage.zoneForPart(aim.part)] = true
+	end
+	for _, zone in { "Head", "UpperTorso", "LowerTorso", "Limb" } do
+		equal(zones[zone], true, "a dummy can aim for the zone " .. zone)
+	end
+	equal(Dummy.aimPart(RangeConfig, RangeConfig.defaultAim) ~= nil, true, "the default aim is one of them")
+	for _, amount in RangeConfig.hurt do
+		equal(amount > 0 and amount < MatchConfig.maxHealth, true, "a plain hit of " .. amount .. " hurts without killing")
+	end
+end)
+
+test("a new dummy wears what a new player does, and can go bare", function()
+	local settings = Dummy.defaults(ArmorConfig, RangeConfig)
+	equal(settings.helmet, ArmorConfig.defaults.helmet, "helmet")
+	equal(settings.body, ArmorConfig.defaults.body, "body armour")
+	equal(settings.dies, true, "it dies")
+	equal(settings.weapon, Dummy.UNARMED, "and does not shoot back")
+
+	-- Its armour is added up by the function a player's is.
+	local worn = Loadout.stats(ArmorConfig, { helmet = settings.helmet, body = settings.body })
+	local bare = Loadout.stats(ArmorConfig, { helmet = Dummy.BARE, body = Dummy.BARE })
+	local player = Loadout.stats(ArmorConfig, Loadout.default(WeaponConfig, TacticalConfig, ArmorConfig))
+	local rifle = Weapons.M16
+	for _, zone in { "Head", "UpperTorso", "LowerTorso", "Limb" } do
+		local raw = Damage.gun(rifle, zone)
+		equal(Loadout.damage(worn, rifle.class, zone, raw), Loadout.damage(player, rifle.class, zone, raw), "as a new player takes it: " .. zone)
+		equal(Loadout.damage(bare, rifle.class, zone, raw), raw, "bare, all of it: " .. zone)
+	end
+end)
+
+test("a dummy can only be set to things that exist", function()
+	local settings = Dummy.defaults(ArmorConfig, RangeConfig)
+	local function set(field, value)
+		return Dummy.changed(WeaponConfig, ArmorConfig, RangeConfig, settings, field, value)
+	end
+	equal(set("dies", false).dies, false, "not dying")
+	equal(settings.dies, true, "the original is not altered")
+	equal(set("helmet", "Listener").helmet, "Listener", "another helmet")
+	equal(set("body", Dummy.BARE).body, Dummy.BARE, "no body armour")
+	equal(set("weapon", "AK47").weapon, "AK47", "a gun")
+	equal(set("aim", "Head").aim, "Head", "an aim")
+	equal(set("moves", true).moves, true, "walking")
+
+	equal(set("dies", "yes"), nil, "a word where a yes or no belongs")
+	equal(set("helmet", "Plate"), nil, "body armour as a helmet")
+	equal(set("helmet", 3), nil, "a number as a helmet")
+	equal(set("weapon", "CombatKnife"), nil, "a knife to shoot with")
+	equal(set("weapon", "Frag"), nil, "a grenade to shoot with")
+	equal(set("weapon", {}), nil, "a table as a gun")
+	equal(set("aim", "Elbow"), nil, "an aim there is not")
+	equal(set("label", "x"), nil, "a field there is not")
+	for _, field in Dummy.FIELDS do
+		equal(settings[field] ~= nil, true, "the default covers " .. field)
+	end
+end)
+
+test("a dummy told not to die is back at full health on the spot", function()
+	local mortal = { dies = true }
+	local immortal = { dies = false }
+
+	local hurt = Dummy.strike(mortal, 100, 100, 28)
+	equal(hurt.left, 72, "health left")
+	equal(hurt.lethal or hurt.died, false, "not a kill")
+
+	local killed = Dummy.strike(mortal, 20, 100, 28)
+	equal(killed.left, 0, "dead")
+	equal(killed.lethal and killed.died, true, "a kill")
+	equal(Dummy.strike(mortal, 28, 100, 28).died, true, "exactly enough is enough")
+
+	local stood = Dummy.strike(immortal, 20, 100, 28)
+	equal(stood.lethal, true, "it would have killed")
+	equal(stood.died, false, "but it did not")
+	equal(stood.left, 100, "and it is whole again")
+	equal(Dummy.strike(immortal, 100, 100, 28).left, 72, "a hit short of killing still shows")
+end)
+
+test("a dummy shooting back fires as fast as its gun, and reloads", function()
+	local config = Weapons.M16
+	local gun = Dummy.newGun(config)
+	local frame = 1 / 60
+	local shots, first, emptiedAt, resumedAt = 0, nil, nil, nil
+	for tick = 0, 60 * 8 do
+		local now = 10 + tick * frame
+		if Dummy.pull(config, gun, now) then
+			shots += 1
+			first = first or now
+			if shots == config.magazine then
+				emptiedAt = now
+			elseif shots == config.magazine + 1 then
+				resumedAt = now
+			end
+		end
+	end
+	-- Thirty rounds a tenth of a second apart, whatever the frame rate.
+	near(emptiedAt - first, (config.magazine - 1) * config.fireInterval, frame, "time to empty the magazine")
+	near(resumedAt - emptiedAt, config.reloadTime, frame, "time to reload")
+	equal(shots > config.magazine, true, "it carries on after reloading")
+
+	-- A gun faster than the frames still gets no more than a shot a look.
+	local fast = { magazine = 1000, fireInterval = 0.001, reloadTime = 1 }
+	local quick = Dummy.newGun(fast)
+	equal(Dummy.pull(fast, quick, 5), true, "fires")
+	equal(Dummy.pull(fast, quick, 5), false, "but not twice at once")
+end)
+
+test("the readout adds a run of hits up, and a kill closes it", function()
+	local rules = { runGap = 3, lines = 3 }
+	local state = Readout.new()
+	local function hit(overrides)
+		return with({ target = 1, weapon = "M16", zone = "UpperTorso", raw = 28, amount = 21, left = 50, lethal = false, distance = 60 }, overrides)
+	end
+
+	Readout.add(rules, state, hit({}), 10)
+	local one = Readout.totals(state.run)
+	equal(one.hits, 1, "one hit")
+	equal(one.perSecond, nil, "one hit has no rate")
+
+	Readout.add(rules, state, hit({}), 10.1)
+	Readout.add(rules, state, hit({}), 10.2)
+	Readout.add(rules, state, hit({}), 10.3)
+	local four = Readout.totals(state.run)
+	equal(four.hits, 4, "four hits")
+	equal(four.damage, 84, "their damage")
+	near(four.seconds, 0.3, 1e-6, "over three tenths of a second")
+	near(four.perSecond, 210, 1e-6, "which is 21 every tenth of a second")
+	equal(four.killHits, nil, "no kill yet")
+	equal(#state.lines, 3, "only the newest lines are kept")
+
+	Readout.add(rules, state, hit({ lethal = true, left = 0 }), 10.4)
+	local kill = Readout.totals(state.run)
+	equal(kill.killHits, 5, "killed by the fifth")
+	near(kill.killTime, 0.4, 1e-6, "four tenths after the first")
+
+	Readout.add(rules, state, hit({}), 10.5)
+	equal(Readout.totals(state.run).hits, 1, "the next hit starts a new run")
+	Readout.add(rules, state, hit({ target = 2 }), 10.6)
+	equal(Readout.totals(state.run).hits, 1, "and so does another dummy")
+	Readout.add(rules, state, hit({ target = 2 }), 10.6 + rules.runGap + 0.1)
+	equal(Readout.totals(state.run).hits, 1, "and so does a long pause")
+
+	Readout.clear(state)
+	equal(state.run, nil, "cleared")
+	equal(#state.lines, 0, "and emptied")
+end)
+
+test("the readout's sums on paper match the weapon tables", function()
+	local rifle = Weapons.M16
+	local body = Readout.onPaper(rifle.damage.UpperTorso, rifle.fireInterval, MatchConfig.maxHealth)
+	equal(body.hits, 4, "four to the chest")
+	near(body.seconds, 3 * rifle.fireInterval, 1e-9, "three gaps between four shots")
+	equal(Readout.onPaper(rifle.damage.Head, rifle.fireInterval, MatchConfig.maxHealth).hits, 1, "one to the head")
+	equal(Readout.onPaper(rifle.damage.Head, rifle.fireInterval, MatchConfig.maxHealth).seconds, 0, "which takes no time")
+	equal(Readout.onPaper(0, 0.1, 100), nil, "a hit that does nothing never kills")
+end)
+
+test("the firing range is laid out as it is labelled", function()
+	local half = { FiringRange.bounds.size[1] / 2, FiringRange.bounds.size[3] / 2 }
+	local middle = { FiringRange.bounds.pos[1], FiringRange.bounds.pos[3] }
+	local function inside(x, z)
+		return math.abs(x - middle[1]) < half[1] and math.abs(z - middle[2]) < half[2]
+	end
+
+	local labels, lanes = {}, 0
+	for _, dummy in FiringRange.dummies do
+		equal(labels[dummy.label], nil, "one dummy called " .. dummy.label)
+		labels[dummy.label] = true
+		equal(inside(dummy.pos[1], dummy.pos[2]), true, dummy.label .. " is on the map")
+		equal(type(dummy.yaw), "number", dummy.label .. " faces somewhere")
+		-- A lane's dummy stands as far from the firing line as its name says.
+		local distance = tonumber(string.match(dummy.label, "^(%d+) STUDS$"))
+		if distance then
+			lanes += 1
+			equal(200 - dummy.pos[2], distance, dummy.label .. " from the line")
+		end
+		local ring = tonumber(string.match(dummy.label, "^PIT (%d+)$"))
+		if ring then
+			near(math.sqrt((dummy.pos[1] + 84) ^ 2 + (dummy.pos[2] - 176) ^ 2), ring, 1e-6, dummy.label .. " from the middle of the pit")
+		end
+	end
+	equal(lanes, 6, "six lanes")
+
+	local names = {}
+	for _, spot in FiringRange.spots do
+		equal(names[spot.name], nil, "one place called " .. spot.name)
+		names[spot.name] = true
+		equal(inside(spot.pos[1], spot.pos[3]), true, spot.name .. " is on the map")
+	end
+	for _, spawn in FiringRange.spawns[FiringRange.teams[1]] do
+		equal(inside(spawn[1], spawn[3]), true, "a spawn is on the map")
+	end
+
+	-- Each ramp of the drop tower starts where the last landing is and ends at the next.
+	local height = 0
+	for index, ramp in FiringRange.ramps do
+		equal(ramp.from[2], height, "ramp " .. index .. " starts at the last landing")
+		height = ramp.to[2]
+		equal(height, FiringRange.drops[index].height, "and ends at the next")
+		equal(height > ramp.from[2], true, "higher up")
+	end
+	equal(#FiringRange.drops, #FiringRange.ramps, "a landing to every ramp")
+	equal(height + 6 < FiringRange.bounds.pos[2] + FiringRange.bounds.size[2] / 2, true, "the top landing is inside the map, standing")
+end)
+
+---------------------------------------------------------------- How the places fit together
+
+-- Every Luau file under `folder`, as paths.
+local function sources(folder, found)
+	found = found or {}
+	for _, name in fs.readDir(folder) do
+		local path = folder .. "/" .. name
+		if fs.isDir(path) then
+			sources(path, found)
+		elseif string.match(name, "%.luau$") then
+			table.insert(found, path)
+		end
+	end
+	return found
+end
+
+test("every source file is valid Luau", function()
+	for _, path in sources("src") do
+		local ok, problem = pcall(luau.compile, fs.readFile(path))
+		if not ok then
+			error(path .. ": " .. tostring(problem), 0)
+		end
+	end
+end)
+
+test("the range has every service its shared code asks for", function()
+	-- What range.project.json puts beside the range's own server code.
+	local project = serde.decode("json", fs.readFile("range.project.json"))
+	local mapped = project.tree.ServerScriptService.Range
+	local present, shared = {}, {}
+	for name, entry in mapped do
+		if type(entry) == "table" and entry["$path"] then
+			present[name] = true
+			table.insert(shared, entry["$path"])
+		end
+	end
+	local own = {}
+	for _, name in fs.readDir(mapped["$path"]) do
+		local module = string.match(name, "^(%w+)%.luau$")
+		if module then
+			present[module] = true
+			own[module] = fs.readFile(mapped["$path"] .. "/" .. name)
+		end
+	end
+
+	for _, path in shared do
+		local source = fs.readFile(path)
+		for sibling in string.gmatch(source, "require%(script%.Parent%.(%w+)%)") do
+			equal(present[sibling], true, path .. " needs " .. sibling .. " beside it")
+		end
+		-- And of the range's own stand-ins, everything it calls or reads.
+		for module, member in string.gmatch(source, "(%w+Service)[%.:](%w+)") do
+			local standIn = own[module]
+			if standIn then
+				local defined = string.find(standIn, "function " .. module .. "%." .. member .. "%(")
+					or string.find(standIn, module .. "%." .. member .. " = ")
+				if not defined then
+					error(string.format("%s uses %s.%s, which the range's %s does not have", path, module, member, module), 0)
+				end
+			end
+		end
+	end
+	equal(#shared >= 6, true, "the range shares the match's combat code")
+end)
+
+test("the range's own code asks only for what is beside it", function()
+	local project = serde.decode("json", fs.readFile("range.project.json"))
+	local server = project.tree.ServerScriptService.Range
+	local present = {}
+	for name, entry in server do
+		if type(entry) == "table" then
+			present[name] = true
+		end
+	end
+	for _, name in fs.readDir(server["$path"]) do
+		present[string.match(name, "^(%w+)") or name] = true
+	end
+	for _, name in fs.readDir(server["$path"]) do
+		local source = fs.readFile(server["$path"] .. "/" .. name)
+		for sibling in string.gmatch(source, "require%(script%.Parent%.(%w+)%)") do
+			equal(present[sibling], true, name .. " needs " .. sibling)
+		end
+		for child in string.gmatch(source, "require%(script%.(%w+)%)") do
+			if child ~= "Parent" then
+				equal(present[child], true, name .. " needs " .. child)
+			end
+		end
+	end
+
+	-- The panel and the readout reach into the match's client for these.
+	local client = project.tree.StarterPlayer.StarterPlayerScripts.Client
+	for _, name in fs.readDir(client.Range["$path"]) do
+		local source = fs.readFile(client.Range["$path"] .. "/" .. name)
+		for module in string.gmatch(source, "require%(Client%.(%w+)%)") do
+			equal(fs.isFile(client["$path"] .. "/" .. module .. ".luau"), true, name .. " needs the client's " .. module)
+		end
+		for module in string.gmatch(source, "require%(script%.Parent%.Parent%.(%w+)%)") do
+			equal(fs.isFile(client["$path"] .. "/" .. module .. ".luau"), true, name .. " needs the client's " .. module)
+		end
+	end
 end)
 
 print(string.format("%d passed, %d failed", passed, failed))

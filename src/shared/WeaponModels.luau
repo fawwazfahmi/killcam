@@ -149,4 +149,47 @@ function WeaponModels.build(name)
 	return model
 end
 
+-- Puts a weapon in a character's right hand, for everybody else to see, in
+-- place of whatever it was holding. With no `name` the hand is left empty.
+-- Returns the model, or nil.
+function WeaponModels.hold(character, name)
+	local old = character:FindFirstChild("HeldWeapon")
+	if old then
+		old:Destroy()
+	end
+	local hand = character:FindFirstChild("RightHand")
+	if not hand or not name then
+		return nil
+	end
+
+	local model = WeaponModels.build(name)
+	model.Name = "HeldWeapon"
+	model:PivotTo(hand.CFrame * CFrame.new(0, -0.1, -0.4))
+
+	local primary = model.PrimaryPart
+	for _, part in model:GetDescendants() do
+		if part:IsA("BasePart") then
+			part.Anchored = false
+			part.CanCollide = false
+			part.CanQuery = false -- shots pass through held weapons
+			part.CanTouch = false
+			part.Massless = true
+			if part ~= primary then
+				local weld = Instance.new("WeldConstraint")
+				weld.Part0 = primary
+				weld.Part1 = part
+				weld.Parent = part
+			end
+		end
+	end
+
+	local grip = Instance.new("WeldConstraint")
+	grip.Part0 = hand
+	grip.Part1 = primary
+	grip.Parent = primary
+
+	model.Parent = character
+	return model
+end
+
 return WeaponModels

@@ -36,10 +36,12 @@ rojo build default.project.json -o build/match.rbxl
 run-in-roblox --place build/match.rbxl --script tools/studio/smoketest.luau
 ```
 
-and the same for `lobby.project.json`. This opens Studio, loads every module,
-builds every map, checks every font and material the project names, and closes
-again, printing the results. It runs in edit mode, so it cannot play the game:
-spawning, shooting and the match loop still have to be tried by hand.
+and the same for `lobby.project.json` and `range.project.json`. This opens
+Studio, loads every module, builds every map, checks every font and material
+the project names, and closes again, printing the results. It runs in edit
+mode, so it cannot play the game: spawning, shooting and the match loop still
+have to be tried by hand. The exception is the test range, which has a second
+script that does play it (see The test range, below).
 
 ### First run, in order
 
@@ -304,7 +306,8 @@ someone with a free slot walks over it.
 
 ## Two places: lobby and match
 
-The game is two places in one experience.
+The game is two places in one experience. (A third, the test range, is for
+developers only and is not part of the game: see below.)
 
 - **Lobby** (`lobby.project.json`): the Penthouse. Players walk in first
   person to a station and press E: the Armoury (loadout and shop), Play (pick
@@ -379,6 +382,105 @@ the game's weapons on the armoury racks.
 
 A box in any layout can be a `shape = "Cylinder"` or `"Ball"` instead of a
 block; `axis = "X"` or `"Z"` lays a cylinder down.
+
+## The test range
+
+A third place, for the game's developers and nobody else: every weapon, piece
+of armour and tactical item unlocked, dummies to shoot, and a panel of
+switches. It is where to find out what a weapon really does.
+
+```
+rojo serve range.project.json
+```
+
+into a third place of the same experience. Nothing in the lobby leads to it;
+open it from its own page, or in Studio.
+
+**Who gets in.** The owner of the experience (or, if a group owns it, the
+group's owner), anybody whose Roblox user id is in `admins` in
+`src/shared/Config/RangeConfig.luau`, and anybody at all in a Studio test.
+Everyone else is removed as they arrive, and the server does nothing the panel
+asks for unless an admin is asking. The rule is `src/shared/Logic/Admin.luau`.
+
+**Nothing done there is saved or counted.** There are no profiles, points,
+experience, weapon standing or rentals on the range, and no teams or score.
+Admins there together cannot hurt each other.
+
+**It is the match's own code.** The range runs the same combat, loadout,
+grenade, tactical, drop and spawn services as a match, mapped in by
+`range.project.json`, with its own stand-ins for the four a match has and the
+range does not (`src/range/server`). A dummy is hit by the same function as a
+player, after the same checks, and its armour is added up the same way, so the
+numbers seen there are the numbers a match gives.
+
+What is on it (`src/server/Maps/FiringRange.luau`):
+
+| Where | What for |
+|---|---|
+| Six lanes | A dummy at 15, 30, 60, 100, 200 and 400 studs from the firing line |
+| Recoil wall | A board ruled in half studs, with marks on the floor 10, 20 and 40 studs from it. Switch bullet marks to stay and a spray can be read off it |
+| Grenade pit | Rings every 5 studs out to a frag's reach, with a dummy on each |
+| Drop tower | A ramp with a landing at 9, 12, 18, 24, 32 and 40 studs. Each has a sign saying what stepping off costs, worked out from the fall rule itself |
+| By the spawn | Two dummies for the knife, one facing you and one with its back turned |
+
+**The loadout menu** (B) lists everything, owned or not, and armour and the
+tactical item can be changed there as well as weapons.
+
+**The panel** (P, or the TEST PANEL button at the foot of the loadout menu, for
+a controller or a touch screen) has two pages.
+
+*Dummies* changes every dummy at once, or only the one you were aiming at when
+you opened it (failing that, the one you last hit):
+
+- whether a killing hit kills it, or is counted and leaves it standing at full
+  health;
+- its helmet and body armour, or none. A new dummy wears what a new player does;
+- whether it stands still or walks from side to side at a player's speed, and
+  whether it crouches;
+- which gun it shoots back with, and whether it aims for your head, chest,
+  stomach or legs. It fires as fast as the gun does, reloads when the gun would,
+  and never misses, so what you take is the same every time;
+- placing a new dummy where the crosshair is, removing placed ones, and
+  standing every dummy back up.
+
+*You* has the switches in `RangeConfig.cheats` (endless reserve, no reloading,
+endless grenades, endless tactical item, loadout changes at once, god mode),
+bullet marks that stay, healing, taking a plain 10, 25 or 50 off your health,
+being hit once by any gun in any place through your own armour, and going
+straight to any part of the range. Under god mode a hit is still reported, and
+still throws your aim; it just takes nothing off.
+
+**The readout**, down the left of the screen, lists every hit landed and every
+hit taken: the weapon, where it landed, from how far, the damage before armour
+and after it, and the health left. Under the list are the totals for the run
+of hits in progress: how many, how much, the damage a second, and once the
+dummy is dead how many hits and how long it took. Until then it says what the
+numbers give on paper for hits like the last one. A number also floats up off
+each hit where it landed.
+
+What the range does not do: a dummy that kills you shows no killcam, since the
+killcam is of a player; a flashbang does not blind a dummy; and a dummy's aim
+is perfect, which a player's is not.
+
+### Playing it without touching it
+
+```
+rojo build range.project.json -o build/range.rbxl
+run-in-roblox --place build/range.rbxl --script tools/studio/rangetest.luau
+```
+
+starts a real play session, with a server and a client, and has the client
+send what a player's game sends: shots, a stab, a grenade, and every request
+the panel can make. It checks what comes back: the damage through each piece
+of armour, dummies dying, walking and shooting back at the right rate, each
+switch, the readout, the panel, and that recoil moves the view by what it
+should and brings it back. It also reports any error the game's own client
+code threw along the way. It takes about a minute. **Leave the Studio window
+alone while it runs**: a click in it is a shot, and the script's own shots
+then arrive too fast and are refused.
+
+It cannot look at the screen. How the range looks, how the controls feel and
+how the panel is laid out still have to be seen by eye.
 
 ## Points, levels and the shop
 

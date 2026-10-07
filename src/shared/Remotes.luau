@@ -23,6 +23,7 @@ local NAMES = {
 	"SquadInvite", -- lobby: ask a player in this penthouse to join your squad
 	"SquadAnswer", -- lobby: accept or decline an invitation, naming who sent it
 	"SquadLeave", -- lobby: leave your squad
+	"RangeCommand", -- test range: something asked for on the admin panel, by name
 	-- server -> client
 	"MatchUpdate",
 	"LoadoutUpdate",
@@ -43,6 +44,8 @@ local NAMES = {
 	"TierUp", -- to one player: the weapon class and the standing they have just reached with it
 	"SquadUpdate", -- lobby, to one player: who is in their squad, and who has invited them
 	"QueueUpdate", -- lobby, to one player: the mode they are queued for and how full it is
+	"RangeUpdate", -- test range, to one player: the dummies, how each is set, and which cheats they have on
+	"RangeHit", -- test range, to one player: a hit they landed on a dummy, or one they took, in full
 }
 
 local Remotes = {}

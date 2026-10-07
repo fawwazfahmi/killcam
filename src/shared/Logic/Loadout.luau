@@ -114,6 +114,8 @@ function Loadout.sanitize(weapons, tactical, armor, choice)
 end
 
 -- Combines the four pieces into one table of numbers. Multipliers multiply.
+-- A slot with nothing in it adds nothing: a player always wears all four, but
+-- one of the test range's dummies can go bare.
 function Loadout.stats(armor, loadout)
 	local stats = {
 		headScale = 1,
@@ -129,7 +131,7 @@ function Loadout.stats(armor, loadout)
 		secondNade = false,
 	}
 	for _, slot in armor.slots do
-		local piece = armor[slot][loadout[slot]]
+		local piece = armor[slot][loadout[slot]] or {}
 		stats.headScale *= piece.headScale or 1
 		stats.speed *= piece.speed or 1
 		stats.equipScale *= piece.equipScale or 1

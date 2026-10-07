@@ -239,8 +239,8 @@ def spawn_points(layout):
         return [], []
     if isinstance(spawns, list):  # one list, mirrored for the second team
         return [(x, z) for x, _, z in spawns], [(-x, z) for x, _, z in spawns]
-    first, second = layout["teams"]
-    return [(x, z) for x, _, z in spawns[first]], [(x, z) for x, _, z in spawns[second]]
+    sides = [[(x, z) for x, _, z in spawns[team]] for team in layout["teams"]]
+    return sides[0], sides[1] if len(sides) > 1 else []  # the test range has one side
 
 
 def check_stations(layout, placed):
@@ -263,9 +263,37 @@ def check_stations(layout, placed):
     return problems
 
 
+def check_range(layout, placed):
+    """The test range: every dummy has room to stand, and it and every place on
+    the ground a player can be sent to can be walked to from where players arrive."""
+    grid, to_cell = walk_grid(layout, placed)
+    pixels = grid.load()
+    cell = lambda x, z: tuple(int(v) for v in to_cell(x, z))
+    arrivals, _ = spawn_points(layout)
+    problems = [f"spawn {i + 1} is blocked" for i, (x, z) in enumerate(arrivals) if pixels[cell(x, z)] != 0]
+    if problems:
+        return problems
+    seen = reachable(grid, cell(*arrivals[0]))
+    half_x, half_z = layout["bounds"]["size"][0] / 2, layout["bounds"]["size"][2] / 2
+    cx, _, cz = layout["bounds"]["pos"]
+    for dummy in layout["dummies"]:
+        x, z = dummy["pos"]
+        if cell(x, z) not in seen:
+            problems.append(f"the dummy {dummy['label']} is walled in or has no room to stand")
+    for spot in layout["spots"]:
+        x, y, z = spot["pos"]
+        if abs(x - cx) > half_x or abs(z - cz) > half_z:
+            problems.append(f"the place {spot['name']} is outside the map")
+        elif y < PLAYER_HEIGHT and cell(x, z) not in seen:  # those higher up are on the drop tower
+            problems.append(f"the place {spot['name']} cannot be walked to")
+    return problems
+
+
 def check(layout, placed):
     if layout.get("stations"):
         return check_stations(layout, placed)
+    if layout.get("dummies"):
+        return check_range(layout, placed)
     grid, to_cell = walk_grid(layout, placed)
     pixels = grid.load()
     cell = lambda x, z: tuple(int(v) for v in to_cell(x, z))
@@ -331,6 +359,15 @@ def draw_plan(layout, placed, path):
         x, z = to_pixel(layout["arrival"][0], layout["arrival"][2])
         draw.ellipse((x - 7, z - 7, x + 7, z + 7), outline=(120, 220, 140), width=3)
 
+    for dummy in layout.get("dummies", []):
+        x, z = to_pixel(*dummy["pos"])
+        draw.ellipse((x - 5, z - 5, x + 5, z + 5), fill=(255, 120, 60))
+        draw.text((x + 8, z - 5), dummy["label"], fill=(255, 160, 110))
+    for spot in layout.get("spots", []):
+        x, z = to_pixel(spot["pos"][0], spot["pos"][2])
+        draw.rectangle((x - 4, z - 4, x + 4, z + 4), outline=(120, 220, 140), width=2)
+        draw.text((x + 8, z + 4), spot["name"], fill=(120, 220, 140))
+
     for sign, points in zip((1, -1), spawn_points(layout)):
         for x, z in points:
             px, pz = to_pixel(x, z)
@@ -358,7 +395,11 @@ def main():
     problems = check(layout, placed)
     for problem in problems:
         print("FAIL", problem)
-    passed = "ok, every station can be reached" if layout.get("stations") else "ok, both spawns connect at ground level"
+    passed = "ok, both spawns connect at ground level"
+    if layout.get("stations"):
+        passed = "ok, every station can be reached"
+    elif layout.get("dummies"):
+        passed = "ok, every dummy and every place on the ground can be reached"
     print("walk check:", passed if not problems else "failed")
     sys.exit(1 if problems else 0)
 

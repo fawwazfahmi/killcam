@@ -4,8 +4,9 @@
 -- picked carry one. The pick is sent to the server and takes effect at the
 -- next spawn.
 --
--- Only what the player owns is listed. In the lobby everything can be changed
--- freely, and a button opens the shop. In a match nothing can be bought:
+-- Only what the player owns is listed, except on the test range, where
+-- everything is. In the lobby everything can be changed freely, and a button
+-- opens the shop. In a match nothing can be bought:
 --   weapons and grenades can be swapped, and each one not carried last life
 --     costs a few points when the player spawns with it;
 --   the tactical item and armour are locked, unless the game sells changes of
@@ -69,7 +70,8 @@ local choice = nil -- the loadout picked for the next spawn, as the server last 
 local profile = nil -- points, level and rentals, as the server last sent them
 local clockOffset = 0 -- server clock minus ours
 local inMatch = false
-local shop = nil -- the shop screen, in the lobby
+local unlocked = false -- the test range: everything can be picked, owned or not
+local link = nil -- { label, open }: a button to another screen (the shop, in the lobby)
 local swapPrice = nil -- Robux for one armour change, once Roblox has told us
 
 -- In a match: true if this field cannot be changed at all.
@@ -110,7 +112,7 @@ local function now()
 end
 
 local function owns(field, key)
-	if key == NONE then
+	if key == NONE or unlocked then
 		return true
 	elseif profile then
 		-- `held`: what was taken into this match stays usable until it ends.
@@ -355,6 +357,7 @@ local function build()
 				"Applies at your next spawn   -   a weapon you were not carrying costs %d points   -   [B] to close",
 				ShopConfig.matchSwap.weaponPoints
 			)
+			elseif unlocked then "Everything is unlocked on the range   -   [B] to close"
 			else "Applies at your next spawn   -   [B] to close",
 		TextSize = SIZE.small,
 		TextColor3 = GREY,
@@ -426,14 +429,15 @@ local function build()
 	noteLabel = text({
 		AnchorPoint = Vector2.new(0, 1),
 		Position = UDim2.new(0, 24, 1, -16),
-		Size = UDim2.new(1, if shop then -48 - 170 else -48, 0, 34),
+		Size = UDim2.new(1, if link then -48 - 170 else -48, 0, 34),
 		Text = "",
 		TextColor3 = ACCENT,
 		TextWrapped = true,
 	}, panel)
 
-	-- Renting is done on its own screen, and only in the lobby.
-	if shop then
+	-- Renting is done on its own screen, and only in the lobby. The test range
+	-- has its panel there.
+	if link then
 		local open = make("TextButton", {
 			AnchorPoint = Vector2.new(1, 1),
 			Position = UDim2.new(1, -24, 1, -16),
@@ -442,12 +446,12 @@ local function build()
 			BorderSizePixel = 0,
 			AutoButtonColor = false,
 			Font = FONT,
-			Text = "OPEN THE SHOP",
+			Text = link.label,
 			TextSize = SIZE.small,
 			TextColor3 = INK,
 		}, panel)
 		open.MouseButton1Click:Connect(function()
-			shop.setOpen(true)
+			link.open()
 		end)
 	end
 end
@@ -474,12 +478,18 @@ function LoadoutMenu.toggle()
 end
 
 -- `options.inMatch` is set in a match, where nothing can be bought and only
--- weapons change freely. `options.shop` is the shop screen, in the lobby.
+-- weapons change freely. `options.unlocked` is set on the test range, where
+-- everything can be picked. `options.link` is { label, open }: a button at the
+-- foot of the menu that opens another screen.
 function LoadoutMenu.start(options)
 	options = options or {}
 	inMatch = options.inMatch == true
-	shop = options.shop
+	unlocked = options.unlocked == true
+	link = options.link
 	build()
+	if unlocked then
+		profileLabel.Text = "TEST RANGE"
+	end
 	refresh()
 
 	if inMatch and SWAP_PRODUCT ~= 0 then

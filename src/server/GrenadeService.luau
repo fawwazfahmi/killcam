@@ -51,6 +51,12 @@ local function cloud(position, radius, color, transparency, lifetime)
 	Debris:AddItem(model, lifetime)
 end
 
+-- What a target that is not a player is told about a grenade's damage (see
+-- CombatService.setTargets). Armour does nothing against a grenade.
+local function blast(amount, distance, target)
+	return { zone = "Blast", raw = amount, headshot = false, distance = distance, at = target.root.Position }
+end
+
 local EFFECTS = {}
 
 function EFFECTS.Frag(thrower, position, config)
@@ -61,6 +67,15 @@ function EFFECTS.Frag(thrower, position, config)
 			local amount = Damage.grenade(config, (root.Position - position).Magnitude)
 			if amount > 0 and not CombatService.blocked(position, root.Position) then
 				CombatService.applyDamage(victim, amount, thrower, "Frag", false)
+			end
+		end
+	end
+	for _, target in CombatService.targets() do
+		if target.alive() then
+			local distance = (target.root.Position - position).Magnitude
+			local amount = Damage.grenade(config, distance)
+			if amount > 0 and not CombatService.blocked(position, target.root.Position) then
+				target.hit(thrower, "Frag", amount, blast(amount, distance, target))
 			end
 		end
 	end
@@ -83,6 +98,13 @@ function EFFECTS.Gas(thrower, position, config)
 				local inside = character and (root.Position - position).Magnitude <= config.radius
 				if inside and canHurt(thrower, victim) and not LoadoutService.isProtected(victim) then
 					CombatService.applyDamage(victim, config.damagePerSecond * GAS_TICK, thrower, "Gas", false)
+				end
+			end
+			for _, target in CombatService.targets() do
+				local distance = (target.root.Position - position).Magnitude
+				if target.alive() and distance <= config.radius then
+					local amount = config.damagePerSecond * GAS_TICK
+					target.hit(thrower, "Gas", amount, blast(amount, distance, target))
 				end
 			end
 		end

@@ -17,6 +17,9 @@ local KillMarks = require(script.KillMarks)
 local Sounds = require(script.Sounds)
 local LoadoutMenu = require(script.LoadoutMenu)
 
+-- Only the test range has this folder (see range.project.json).
+local Range = script:FindFirstChild("Range")
+
 -- Each controller runs once per frame, in this order:
 -- movement, (Roblox camera), recoil, weapons, viewmodel.
 Controls.start()
@@ -41,7 +44,24 @@ PodiumController.start()
 ReviveController.start(Controls)
 SpectateController.start({ camera = CameraController, viewmodel = ViewmodelController })
 KillMarks.start()
-LoadoutMenu.start({ inMatch = true }) -- nothing is sold in a match, so there is no shop here
+if Range then
+	local Panel = require(Range.Panel)
+	require(Range.Readout).start()
+	Panel.start()
+	LoadoutMenu.start({
+		unlocked = true,
+		-- Where there is no P key to press, the panel is reached from here.
+		link = {
+			label = "TEST PANEL",
+			open = function()
+				LoadoutMenu.setOpen(false)
+				Panel.setOpen(true)
+			end,
+		},
+	})
+else
+	LoadoutMenu.start({ inMatch = true }) -- nothing is sold in a match, so there is no shop here
+end
 Controls.on("Loadout", function(down)
 	if down then
 		LoadoutMenu.toggle()

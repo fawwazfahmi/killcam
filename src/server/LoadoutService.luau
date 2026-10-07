@@ -149,46 +149,10 @@ function LoadoutService.attachModel(player)
 		return
 	end
 
-	local old = character:FindFirstChild("HeldWeapon")
-	if old then
-		old:Destroy()
-	end
-
-	local hand = character:FindFirstChild("RightHand")
 	local config = WeaponConfig.Weapons[LoadoutService.weaponName(state)]
 	-- A teammate watching through this player's eyes draws the same weapon.
 	player:SetAttribute("Weapon", if config then config.model else nil)
-	if not hand or not config then
-		return
-	end
-
-	local model = WeaponModels.build(config.model)
-	model.Name = "HeldWeapon"
-	model:PivotTo(hand.CFrame * CFrame.new(0, -0.1, -0.4))
-
-	local primary = model.PrimaryPart
-	for _, part in model:GetDescendants() do
-		if part:IsA("BasePart") then
-			part.Anchored = false
-			part.CanCollide = false
-			part.CanQuery = false -- shots pass through held weapons
-			part.CanTouch = false
-			part.Massless = true
-			if part ~= primary then
-				local weld = Instance.new("WeldConstraint")
-				weld.Part0 = primary
-				weld.Part1 = part
-				weld.Parent = part
-			end
-		end
-	end
-
-	local grip = Instance.new("WeldConstraint")
-	grip.Part0 = hand
-	grip.Part1 = primary
-	grip.Parent = primary
-
-	model.Parent = character
+	WeaponModels.hold(character, if config then config.model else nil)
 end
 
 -- Fresh loadout for a new life.
