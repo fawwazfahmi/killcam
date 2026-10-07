@@ -27,6 +27,7 @@ local PLACEHOLDERS = {
 			{ "Magazine", { 0.25, 0.8, 0.4 }, { 0, -0.05, -0.9 }, DARK },
 		},
 	},
+	-- No weapon of its own: the stand-in for every SMG.
 	Smg = {
 		muzzle = { 0, 0.5, -2.0 },
 		blocks = {

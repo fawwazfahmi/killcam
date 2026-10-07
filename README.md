@@ -259,7 +259,8 @@ The game is two places in one experience.
 
 - **Lobby** (`lobby.project.json`): the Penthouse. Players walk in first
   person to a station and press E: the Armoury (loadout and shop), Play (pick
-  a mode and queue) or Profile. They stay in the lobby until a match is found.
+  a mode and queue), Profile or Squad. They stay in the lobby until a match is
+  found.
   It is also where a player is told that a rental has run out.
 - **Match** (`default.project.json`): everything else in this README.
 
@@ -287,12 +288,21 @@ advertises the empty place. Any lobby with players queued for that mode sends
 them in, ahead of starting a new match; a seat is claimed in one step, so two
 lobbies cannot both fill it, and it frees itself if the player never arrives.
 The newcomer joins the smaller team, and in Search and Destroy spawns at the
-next round (watching a teammate until then). A match that is nearly over (its
-last minute, a side almost at the score it needs, or match point) asks for
-nobody. If a whole side has left and nobody replaces them within
-`forfeitAfter` seconds, the side still there wins and is paid as usual. The
-numbers are `backfill` in `LobbyConfig`; the rules are
-`src/shared/Logic/Backfill.luau`.
+next round (watching a teammate until then). A match asks for players for as
+long as it is being played, however close to its end; somebody who arrives too
+late to do anything earns nothing for it (see the payout rules below). If a
+whole side has left and nobody replaces them within `forfeitAfter` seconds,
+the side still there wins and is paid as usual. The numbers are `backfill` in
+`LobbyConfig`; the rules are `src/shared/Logic/Backfill.luau`.
+
+**Squads.** At the Squad station a player invites others standing in the same
+penthouse, up to four in all. Whoever sent the invitations leads: only they
+invite, and only they pick the mode. A squad queues as one and is never split:
+not between matches, and in a team mode not between teams. So a queue only
+launches when its groups can make two even sides (a squad of three waits for
+three more players, not one), and a squad is only sent into a running match
+that has room for all of it on one team. Any change to a squad takes it out of
+the queue. The rules are `src/shared/Logic/Squad.luau` and `Queue.pick`.
 
 To set it up, publish both places under one experience, switch on **Enable
 Studio Access to API Services**, and put the two place ids in
@@ -339,8 +349,37 @@ Kills, deaths, plants and defuses are counted in one place, `StatsService`,
 which also feeds the player list (Tab) and the end-of-match payouts.
 
 A finished match pays every player points (per kill, plus a win or loss
-amount), and its top killer, the MVP, a bonus. Points also count as experience
-towards levels, and each level pays a bonus. Points rent loadout options in
+amount), and its top killer, the MVP, a bonus. Two things cut that down
+(`rewards` in `ShopConfig`):
+
+- **Taking no part pays nothing.** No kills, deaths, assists, plants or
+  defuses means no points and no experience, whichever side won. That is a
+  player sent into a match as it ended, or one who stood idle.
+- **A short stay pays half.** Under `shortStay` seconds in the match (90),
+  whatever was earned is halved.
+
+**Ranks.** Points also count as experience towards levels, and each level pays
+a bonus. A level is a grade of a rank: everybody starts at Private 1 and
+climbs a grade at a time (Private 2, Private 3, Private First Class 1, and so
+on) to Commander in Chief, 74 levels in all. The ladder is `ranks` in
+`ShopConfig`: ranks can be added, renamed or given more grades at any time,
+because what is saved is the level and the rank is read from it. The rank is
+shown in the profile, the loadout and the shop, and on the card when someone
+kills you.
+
+**Weapon standing.** Each class of weapon (rifle, SMG, sniper, handgun, knife,
+grenades) earns its own experience: a kill with a weapon of that class, or an
+assist, which is hurting someone within a few seconds of another player
+killing them. Only kills that count for the match earn it. That experience
+climbs a ladder of materials, five tiers each: Wood 1 to Wood 5, then Iron,
+Gold, Diamond and Titanium. Nothing resets. The ladder is `prestiges` in
+`ProgressConfig`, and it can be reworked without anybody losing anything:
+what is saved is the experience itself and the *name* of the best standing
+reached, so adding materials or tiers just gives more to climb, and making
+tiers cost more never moves a player below where they had got to. The profile
+lists every class; a line in the feed marks each tier gained.
+
+Points rent loadout options in
 the **shop**, which is its own screen in the lobby: the Armoury station, or
 the button at the bottom of the loadout menu there. The **loadout** menu lists
 only what you own. There is no shop in a match.

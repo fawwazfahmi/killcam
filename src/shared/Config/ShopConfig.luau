@@ -107,7 +107,24 @@ return {
 	-- Price in points for one unit (an hour of use, or a day), by loadout field
 	-- then option. Anything not listed here is free for everyone.
 	prices = {
-		primary = { Smg = 200, Sniper = 300 },
+		primary = {
+			-- Rifles
+			FAMAS = 220,
+			AK47 = 250,
+			HK416 = 250,
+			ASVal = 260,
+			SCAR = 280,
+			-- SMGs
+			MAC10 = 180,
+			MP5 = 200,
+			MP7 = 220,
+			-- Snipers
+			Scout = 280,
+			Sniper = 300,
+			Dragunov = 320,
+			MSR = 380,
+			AWP = 400,
+		},
 		nade = { Smoke = 120, Gas = 150, Flash = 150 },
 		tactical = { Cryo = 200 },
 		helmet = { Listener = 250 },

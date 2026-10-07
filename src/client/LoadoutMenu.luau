@@ -49,6 +49,7 @@ local BUTTON_WIDTH = 136
 local GAP = 8
 local MOST_OPTIONS = 4
 local HEADER, FOOTER = 70, 64
+local SCREEN_MARGIN = 60 -- pixels of screen always left clear above and below the panel
 local WIDTH = 24 + TITLE_WIDTH + MOST_OPTIONS * (BUTTON_WIDTH + GAP) + 16
 
 local NONE = "" -- the key of "carry nothing here" in a second-weapon row
@@ -57,7 +58,7 @@ local SWAP_PRODUCT = ShopConfig.matchSwap.armourProductId
 local LOBBY_ONLY = "Armour and tactical items are changed in the lobby"
 
 local player = Players.LocalPlayer
-local gui, panel, noteLabel, profileLabel
+local gui, panel, stack, stackLayout, noteLabel, profileLabel
 
 local rows = {} -- { field, frame, second = Loadout.SECOND entry or nil, buttons = { [key] = { button, option } } }
 
@@ -196,6 +197,15 @@ local function swapCost()
 	return "costs Robux to change here"
 end
 
+-- Makes the panel as tall as its rows, up to what the screen has room for;
+-- past that the rows scroll.
+local function fit()
+	local camera = workspace.CurrentCamera
+	local room = if camera then camera.ViewportSize.Y - SCREEN_MARGIN else math.huge
+	local wanted = HEADER + stackLayout.AbsoluteContentSize.Y + FOOTER
+	panel.Size = UDim2.fromOffset(WIDTH, math.min(wanted, math.max(room, HEADER + ROW_HEIGHT + FOOTER)))
+end
+
 local function refresh()
 	if profile then
 		profileLabel.Text = string.format(
@@ -208,7 +218,6 @@ local function refresh()
 	end
 
 	local stats = choice and Loadout.stats(ArmorConfig, choice)
-	local shown = 0
 	for _, row in rows do
 		-- A second primary or grenade is only offered while the gloves picked carry one.
 		local offered = not row.second or (stats ~= nil and stats[row.second.stat])
@@ -216,7 +225,6 @@ local function refresh()
 		if not offered then
 			continue
 		end
-		shown += 1
 
 		for key, entry in row.buttons do
 			local picked = choice ~= nil and (choice[row.field] or NONE) == key
@@ -236,7 +244,7 @@ local function refresh()
 			end
 		end
 	end
-	panel.Size = UDim2.fromOffset(WIDTH, HEADER + shown * (ROW_HEIGHT + ROW_GAP) + FOOTER)
+	fit()
 end
 
 local function describeOption(field, option)
@@ -340,33 +348,43 @@ local function build()
 		TextColor3 = GREY,
 	}, panel)
 
-	-- The rows stack, and close up around any that are hidden.
-	local stack = make("Frame", {
+	-- The rows stack, and close up around any that are hidden. A player who
+	-- owns a great deal gets a list that scrolls, not one that runs off the panel.
+	stack = make("ScrollingFrame", {
 		Position = UDim2.fromOffset(24, HEADER),
 		Size = UDim2.new(1, -40, 1, -HEADER - FOOTER),
 		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ScrollBarThickness = 4,
+		CanvasSize = UDim2.new(),
+		AutomaticCanvasSize = Enum.AutomaticSize.Y,
 	}, panel)
-	make("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, ROW_GAP) }, stack)
+	stackLayout = make("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, ROW_GAP) }, stack)
+	stackLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(fit)
 
 	for index, described in describe() do
 		local frame = make("Frame", {
-			Size = UDim2.new(1, 0, 0, ROW_HEIGHT),
+			Size = UDim2.new(1, -8, 0, ROW_HEIGHT),
+			AutomaticSize = Enum.AutomaticSize.Y,
 			BackgroundTransparency = 1,
 			LayoutOrder = index,
 		}, stack)
 		text({ Size = UDim2.fromOffset(TITLE_WIDTH, ROW_HEIGHT), Text = described.title }, frame)
 
-		-- The options sit in a line that closes up around anything hidden, so
-		-- a player only ever sees what they can actually take.
+		-- The options sit in a grid that closes up around anything hidden, so
+		-- a player only ever sees what they can actually take, and wraps onto
+		-- as many lines as that needs.
 		local shelf = make("Frame", {
 			Position = UDim2.fromOffset(TITLE_WIDTH, 0),
-			Size = UDim2.new(1, -TITLE_WIDTH, 1, 0),
+			Size = UDim2.new(1, -TITLE_WIDTH, 0, ROW_HEIGHT),
+			AutomaticSize = Enum.AutomaticSize.Y,
 			BackgroundTransparency = 1,
 		}, frame)
-		make("UIListLayout", {
-			FillDirection = Enum.FillDirection.Horizontal,
+		make("UIGridLayout", {
+			CellSize = UDim2.fromOffset(BUTTON_WIDTH, ROW_HEIGHT),
+			CellPadding = UDim2.fromOffset(GAP, GAP),
+			FillDirectionMaxCells = MOST_OPTIONS,
 			SortOrder = Enum.SortOrder.LayoutOrder,
-			Padding = UDim.new(0, GAP),
 		}, shelf)
 
 		local row = { field = described.field, frame = frame, second = Loadout.SECOND[described.field], buttons = {} }

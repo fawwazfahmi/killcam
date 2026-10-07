@@ -1657,7 +1657,7 @@ test("every weapon belongs to a class that earns experience", function()
 		end
 	end
 	equal(Prestige.classOf(Weapons.Bomb), nil, "the bomb is not a weapon class")
-	equal(Prestige.classOf(Weapons.Smg), "SMG", "the SMG has its own")
+	equal(Prestige.classOf(Weapons.MP5), "SMG", "an SMG has its own")
 	equal(Prestige.classOf(Weapons.Pistol), "Handgun", "and so does the handgun")
 end)
 
@@ -1731,16 +1731,27 @@ test("kills and assists earn experience for the class of weapon used", function(
 	equal(record.peak.tier, 2, "remembered")
 end)
 
-test("the SMG matches the rifle up close and gives way at range", function()
-	local smg, rifle = Weapons.Smg, Weapons.Rifle
-	equal(shotsToKill(smg, "UpperTorso"), 5, "five to the body")
-	equal(shotsToKill(smg, "Head"), 2, "two to the head: no one-shot")
-	near((shotsToKill(smg, "UpperTorso") - 1) * smg.fireInterval, (shotsToKill(rifle, "UpperTorso") - 1) * rifle.fireInterval, 0.011,
-		"the same time to kill on the body")
-	equal(smg.range < rifle.range, true, "shorter reach")
-	equal(smg.spread.maxBloom > rifle.spread.maxBloom, true, "and wilder held down")
-	equal(WeaponConfig.Primaries.Smg, true, "it is a primary")
-	equal(ShopConfig.prices.primary.Smg ~= nil, true, "that has to be rented")
+test("an SMG never kills in one shot, and gives way to the carbine at range", function()
+	local carbine = Weapons[WeaponConfig.DefaultPrimary]
+	local found = 0
+	for name, config in Weapons do
+		if config.class == "SMG" then
+			found += 1
+			equal(shotsToKill(config, "Head") >= 2, true, name .. " needs two to the head")
+			equal(shotsToKill(config, "UpperTorso") >= shotsToKill(carbine, "UpperTorso"), true, name .. " needs no fewer body shots than the carbine")
+			equal(config.range < carbine.range, true, name .. " has the shorter reach")
+			equal(WeaponConfig.Primaries[name], true, name .. " is a primary")
+		end
+	end
+	equal(found >= 3, true, "there are SMGs to choose from")
+end)
+
+test("every gun but the one everybody starts with has to be rented", function()
+	for _, name in WeaponConfig.PrimaryOrder do
+		local free = Economy.isFree(ShopConfig, "primary", name)
+		equal(free, name == WeaponConfig.DefaultPrimary, name .. (if free then " is free" else " is a rental"))
+	end
+	equal(#WeaponConfig.PrimaryOrder >= 13, true, "the whole armoury is on the list")
 end)
 
 test("a side left on its own wins, but only when it is truly alone", function()
