@@ -1,5 +1,5 @@
 return {
-	map = "Stockyard", -- a module in ServerScriptService.Server.Maps: "NightYard", "KilnHall", "CraterStation" or "Stockyard"
+	map = "Stockyard", -- a module in ServerScriptService.Server.Maps: "NightYard", "KilnHall", "CraterStation", "Stockyard" or "LebuhLama"
 
 	-- "FFA"  free-for-all: everyone for themselves, first to the kill limit
 	-- "TDM"  team deathmatch: first team to the kill limit

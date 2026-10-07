@@ -56,7 +56,7 @@ TEAM = {1: (220, 70, 70), -1: (70, 120, 230)}
 
 def load(name):
     result = subprocess.run(
-        ["lune", "run", "tools/maps/dump", name], cwd=ROOT, capture_output=True, text=True, check=True
+        ["lune", "run", "tools/maps/dump", name], cwd=ROOT, capture_output=True, text=True, encoding="utf-8", check=True
     )
     return json.loads(result.stdout)
 
@@ -100,8 +100,11 @@ def carve_solids(bounds, open_rects):
     return solids
 
 
-def instances(layout):
-    """Every placed box as (box, sign), including mirrored copies and lamp posts."""
+def instances(layout, decor=False):
+    """Every placed box as (box, sign), including mirrored copies and lamp posts.
+
+    Decoration (`decor = true` in the layout) stops nobody and no shot, so it
+    is left out unless `decor` asks for it: only the picture of the map wants it."""
     placed = []
     fill = layout.get("fill")
     if fill:
@@ -115,6 +118,8 @@ def instances(layout):
                 1,
             ))
     for box in layout["boxes"]:
+        if box.get("decor") and not decor:
+            continue
         placed.append((box, 1))
         if box.get("mirror"):
             placed.append((box, -1))
@@ -143,6 +148,8 @@ def blocks_walking(box):
 
 def ramp_footprints(layout):
     for ramp in layout["ramps"]:
+        if ramp.get("decor"):
+            continue  # a canopy or a rafter: scenery overhead, not a slope to walk on
         for sign in (1, -1) if ramp.get("mirror") else (1,):
             (fx, _, fz), (tx, _, tz) = ramp["from"], ramp["to"]
             fx, tx = fx * sign, tx * sign
@@ -332,6 +339,8 @@ def draw_plan(layout, placed, path):
             draw.polygon(corners, fill=fill)
 
     for ramp in layout["ramps"]:
+        if ramp.get("decor"):
+            continue
         for sign in (1, -1) if ramp.get("mirror") else (1,):
             a = to_pixel(ramp["from"][0] * sign, ramp["from"][2])
             b = to_pixel(ramp["to"][0] * sign, ramp["to"][2])

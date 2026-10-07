@@ -74,7 +74,7 @@ return {
 			min = 4,
 			max = 10,
 			teams = true,
-			maps = { "Stockyard" },
+			maps = { "Stockyard", "LebuhLama" },
 		},
 	},
 }

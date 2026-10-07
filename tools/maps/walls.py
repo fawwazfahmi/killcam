@@ -48,6 +48,8 @@ def is_wall(box):
     between two of them is cover, not a hole."""
     bottom = box["pos"][1] - box["size"][1] / 2
     top = box["pos"][1] + box["size"][1] / 2
+    if box.get("freestanding"):
+        return False  # a column, a post, a rack: the space round it is not a doorway
     return bottom < PLAYER_HEIGHT and top - max(bottom, 0) >= WALL_HEIGHT
 
 
@@ -169,13 +171,20 @@ def openings(wall, shape):
                 continue
             gaps[cell] = width
 
-        # `index` runs across the wall; a doorway's cluster is thin in it.
-        for group in label(list(gaps), shape):
-            spread = [cell[0] if axis == 0 else cell[1] for cell in group]
-            if (max(spread) - min(spread)) * CELL > MAX_DEPTH:
-                continue  # a corridor running alongside, not a way through a wall
-            middle = group[len(group) // 2]
-            found.append((middle, min(gaps[cell] for cell in group)))
+        # `index` runs across the wall; a doorway's cluster is thin in it. A
+        # doorway is one width all the way through, so gaps are grouped a
+        # width at a time: a door into a room no wider than MAX_DOOR is then
+        # not lost in the room behind it.
+        by_width = {}
+        for cell, width in gaps.items():
+            by_width.setdefault(round(width), []).append(cell)
+        for cells in by_width.values():
+            for group in label(cells, shape):
+                spread = [cell[0] if axis == 0 else cell[1] for cell in group]
+                if (max(spread) - min(spread)) * CELL > MAX_DEPTH:
+                    continue  # a corridor running alongside, not a way through a wall
+                middle = group[len(group) // 2]
+                found.append((middle, min(gaps[cell] for cell in group)))
     return found
 
 

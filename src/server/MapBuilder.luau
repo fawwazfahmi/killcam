@@ -9,9 +9,21 @@
 --   Workspace.Map.Barriers      optional: invisible walls that keep players in
 -- If Workspace.Map already exists, nothing is built.
 --
--- Shapes: a box is a block unless it has `shape = "Cylinder"` or "Ball". Its
--- size is still the box it fills. A cylinder stands upright unless `axis`
--- ("X" or "Z") lays it down along that direction.
+-- Shapes: a box is a block unless it has `shape = "Cylinder"`, "Ball" or
+-- "Wedge". Its size is still the box it fills. A cylinder stands upright
+-- unless `axis` ("X" or "Z") lays it down along that direction. A wedge is the
+-- box cut corner to corner: its upright face is on the box's own +Z side and
+-- its slope runs down to nothing on the -Z side; `yaw` turns it.
+--
+-- Decoration: a box with `decor = true` is seen and nothing else. It goes in
+-- Props, stops nobody and no shot, and the map tools leave it out of every
+-- walking and wall check. Lanterns, shutters, roof tiles and trim are decor.
+--
+-- Signboards: `layout.signboards` is a list of boards with writing on them,
+--   { pos = { x, y, z }, size = { width, height }, yaw = 0, text = "KEDAI KOPI",
+--     color = { r, g, b }, ink = { r, g, b }, font = "GothamBold", lit = true }
+-- The writing faces the board's own -Z, so `yaw = 0` is read from the north.
+-- A `lit` board glows the same in shade and at night. Boards are decor.
 --
 -- Props: a box with a `prop` field is drawn as that model from
 -- ReplicatedStorage.Assets.Props (see Tools.FitProps), stretched to the box.
@@ -147,6 +159,8 @@ local function shape(part, box, size, cframe)
 			size = Vector3.new(size.Y, size.X, size.Z)
 			cframe *= CFrame.Angles(0, 0, math.rad(90))
 		end
+	elseif box.shape == "Wedge" then
+		part.Shape = Enum.PartType.Wedge
 	end
 	part.Size = size
 	part.CFrame = cframe
@@ -167,6 +181,13 @@ local function addBox(parent, props, box, sign)
 			part.Position = cframe.Position
 		end
 	end
+	if box.decor then
+		part.CanCollide = false
+		part.CanQuery = false
+		part.CanTouch = false
+		part.Parent = props
+		return
+	end
 	part.Parent = parent
 
 	if box.prop then
@@ -181,6 +202,47 @@ local function addBox(parent, props, box, sign)
 	end
 end
 
+-- A board with writing on it. Scenery: it stops nobody and no shot.
+local SIGN_PIXELS_PER_STUD = 24
+local SIGN_THICKNESS = 0.3
+
+local function addSignboard(parent, board)
+	local part = Instance.new("Part")
+	part.Name = "Signboard"
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanQuery = false
+	part.CanTouch = false
+	part.CastShadow = false
+	part.Size = Vector3.new(board.size[1], board.size[2], SIGN_THICKNESS)
+	part.CFrame = CFrame.new(vector(board.pos, 1)) * CFrame.Angles(0, math.rad(board.yaw or 0), 0)
+	part.Color = color(board.color)
+	part.Material = Enum.Material.SmoothPlastic
+
+	local face = Instance.new("SurfaceGui")
+	face.Face = Enum.NormalId.Front
+	face.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	face.PixelsPerStud = SIGN_PIXELS_PER_STUD
+	face.LightInfluence = if board.lit then 0 else 1
+	if board.lit then
+		face.Brightness = 1.2
+	end
+	face.Parent = part
+
+	local label = Instance.new("TextLabel")
+	label.AnchorPoint = Vector2.new(0.5, 0.5)
+	label.Position = UDim2.fromScale(0.5, 0.5)
+	label.Size = UDim2.fromScale(0.9, 0.8)
+	label.BackgroundTransparency = 1
+	label.Text = board.text
+	label.TextScaled = true
+	label.Font = Enum.Font[board.font or Theme.bodyBold]
+	label.TextColor3 = color(board.ink)
+	label.Parent = face
+
+	part.Parent = parent
+end
+
 -- Far-off scenery: seen, but never touched, shot or walked on.
 local function addBackdrop(parent, box)
 	local part = styled(box.kind, 1)
@@ -192,12 +254,22 @@ local function addBackdrop(parent, box)
 	part.Parent = parent
 end
 
--- A walkable slab whose top surface runs from `from` up to `to`.
-local function addRamp(parent, ramp, sign)
+-- A walkable slab whose top surface runs from `from` up to `to`. With
+-- `decor = true` it is a sloping piece of scenery instead (a canopy, a
+-- rafter): `thick` sets how thick, and it goes in `props` and stops nothing.
+local function addRamp(parent, props, ramp, sign)
 	local from, to = vector(ramp.from, sign), vector(ramp.to, sign)
+	local thick = ramp.thick or 1
 	local part = styled(ramp.kind, sign)
-	part.Size = Vector3.new(ramp.width, 1, (to - from).Magnitude)
-	part.CFrame = CFrame.lookAt((from + to) / 2, to) * CFrame.new(0, -0.5, 0)
+	part.Size = Vector3.new(ramp.width, thick, (to - from).Magnitude)
+	part.CFrame = CFrame.lookAt((from + to) / 2, to) * CFrame.new(0, -thick / 2, 0)
+	if ramp.decor then
+		part.CanCollide = false
+		part.CanQuery = false
+		part.CanTouch = false
+		part.Parent = props
+		return
+	end
 	part.Parent = parent
 end
 
@@ -352,9 +424,9 @@ function MapBuilder.build(layout)
 		end
 	end
 	for _, ramp in layout.ramps do
-		addRamp(geometry, ramp, 1)
+		addRamp(geometry, props, ramp, 1)
 		if ramp.mirror then
-			addRamp(geometry, ramp, -1)
+			addRamp(geometry, props, ramp, -1)
 		end
 	end
 	for _, lamp in layout.lamps do
@@ -362,6 +434,10 @@ function MapBuilder.build(layout)
 		if lamp.mirror then
 			addLamp(geometry, props, lamp, -1)
 		end
+	end
+
+	for _, board in layout.signboards or {} do
+		addSignboard(props, board)
 	end
 
 	if layout.backdrop then
@@ -428,6 +504,9 @@ function MapBuilder.build(layout)
 	if lighting.latitude then
 		Lighting.GeographicLatitude = lighting.latitude -- how high the sun climbs
 	end
+	-- Below 0 the whole picture is darker, as a camera stopped down: for a map
+	-- with many lamps on pale walls, which would otherwise burn out.
+	Lighting.ExposureCompensation = lighting.exposure or 0
 	if lighting.environment then
 		-- How much of the sky shows in metal and glass.
 		Lighting.EnvironmentDiffuseScale = lighting.environment

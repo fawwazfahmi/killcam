@@ -218,7 +218,7 @@ separate meshes, and every mesh is UV-unwrapped at one texture repeat per
 
 ## Maps
 
-There are four maps, all original layouts. Choose one with `map` in
+There are five maps, all original layouts. Choose one with `map` in
 `src/shared/Config/MatchConfig.luau`.
 
 | Map | What it is |
@@ -227,6 +227,27 @@ There are four maps, all original layouts. Choose one with `map` in
 | `KilnHall` | Compact roofed arena around a central kiln, mirrored |
 | `CraterStation` | Small arena around a raised pad, lower gravity, mirrored |
 | `Stockyard` | Two sites (A and B), attackers and defenders, not mirrored |
+| `LebuhLama` | Two sites in a Malaysian old town at dusk: a covered market street, shophouses and back lanes, and a colonial bank whose vault is site B. Not mirrored |
+
+`LebuhLama` is the first map that is dressed rather than a blockout, and it is
+all Roblox parts and built-in materials: nothing to import. Its shop fronts,
+roofs, lanterns and signs are decoration (`decor = true` in the layout), which
+stops nobody and no shot; what looks like cover (stalls, vehicles, piers,
+counters, pillars) is. Design:
+[docs/superpowers/specs/2026-10-07-lebuh-lama-map-design.md](docs/superpowers/specs/2026-10-07-lebuh-lama-map-design.md)
+
+To check a map after changing it:
+
+```
+python tools/maps/plan.py LebuhLama
+python tools/maps/walls.py LebuhLama
+python tools/maps/view.py LebuhLama
+python tools/maps/view.py LebuhLama --full --crop=66,-96,136,-46 --yaw 60 --pitch 28 --tag carpark
+```
+
+The first fails if a spawn or a site cannot be walked to; the second if the
+walls have a gap or a doorway the design lists is missing; the third draws the
+map cut open, and the fourth a part of it as it stands.
 
 ## Modes
 
@@ -243,8 +264,8 @@ Set `mode` in `src/shared/Config/MatchConfig.luau`.
   running out before the plant, or by defusing. The teams swap sides once.
   Every number is in the `bomb` table in `MatchConfig`.
 
-SND needs a map with sites, which today means `Stockyard`; on any other map
-the game runs TDM. The first team in `teams` attacks first.
+SND needs a map with sites, which today means `Stockyard` or `LebuhLama`; on
+any other map the game runs TDM. The first team in `teams` attacks first.
 
 ## When you die
 
