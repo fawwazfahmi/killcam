@@ -1,0 +1,36 @@
+{
+  "name": "Bayonet",
+  "studsPerMetre": 5.5,
+  "muzzle": [
+    0.0,
+    -0.011,
+    -1.331
+  ],
+  "parts": {
+    "Blade": {
+      "finish": "Bare",
+      "group": "Body",
+      "triangles": 1474
+    },
+    "Guard": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 884
+    },
+    "Handle": {
+      "finish": "Olive",
+      "group": "Body",
+      "triangles": 1904
+    },
+    "Pommel": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 412
+    },
+    "Latch": {
+      "finish": "Steel",
+      "group": "Latch",
+      "triangles": 376
+    }
+  }
+}

@@ -120,11 +120,12 @@ return {
 			MP7 = 220,
 			-- Snipers
 			Scout = 280,
-			Sniper = 300,
 			Dragunov = 320,
 			MSR = 380,
 			AWP = 400,
 		},
+		secondary = { Glock21 = 100, Revolver = 140, Deagle = 160 },
+		melee = { Bayonet = 70, Keris = 90, Karambit = 100 },
 		nade = { Smoke = 120, Gas = 150, Flash = 150 },
 		tactical = { Cryo = 200 },
 		helmet = { Listener = 250 },

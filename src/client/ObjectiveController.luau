@@ -8,7 +8,6 @@
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Theme = require(Shared.Config.Theme)
@@ -16,7 +15,7 @@ local Remotes = require(Shared.Remotes)
 
 local ObjectiveController = {}
 
-local USE_KEY = Enum.KeyCode.F -- held to defuse. The same key takes a revive, but only when dead.
+local controls -- Controls: the Use action is held to defuse. The same action takes a revive, but only when dead.
 
 local player = Players.LocalPlayer
 local hud
@@ -52,7 +51,7 @@ local function objective(role)
 		if role == "Attack" then
 			return "Bomb planted" .. where .. "  -  keep them off it"
 		end
-		return "Bomb planted" .. where .. "  -  defuse it  [hold " .. USE_KEY.Name .. "]"
+		return "Bomb planted" .. where .. "  -  defuse it  [hold " .. controls.hint("Use") .. "]"
 	end
 	return ""
 end
@@ -106,8 +105,10 @@ function ObjectiveController.setPlanting(value)
 	end
 end
 
-function ObjectiveController.start(hudModule)
+-- `controlsModule` is Controls.
+function ObjectiveController.start(hudModule, controlsModule)
 	hud = hudModule
+	controls = controlsModule
 	buildMarker()
 
 	Remotes.MatchUpdate.OnClientEvent:Connect(function(snapshot)
@@ -126,14 +127,11 @@ function ObjectiveController.start(hudModule)
 		end
 	end)
 
-	UserInputService.InputBegan:Connect(function(input, processed)
-		if not processed and input.KeyCode == USE_KEY and side() == "Defend" then
+	controls.on("Use", function(down)
+		if down and side() == "Defend" then
 			defusing = true
 			sync()
-		end
-	end)
-	UserInputService.InputEnded:Connect(function(input)
-		if input.KeyCode == USE_KEY and defusing then
+		elseif not down and defusing then
 			defusing = false
 			sync()
 		end

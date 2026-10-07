@@ -79,8 +79,10 @@ local PLACEHOLDERS = {
 }
 
 -- Detailed models fall back to the block weapon of the same kind until they
--- have been imported into Assets.
+-- have been imported into Assets. None of the block weapons is a
+-- weapon itself any more, only a stand-in.
 local FALLBACK = {
+	M16 = "Rifle",
 	AK47 = "Rifle",
 	HK416 = "Rifle",
 	SCAR = "Rifle",
@@ -93,6 +95,14 @@ local FALLBACK = {
 	MP5 = "Smg",
 	MAC10 = "Smg",
 	MP7 = "Smg",
+	P2020 = "Pistol",
+	Glock21 = "Pistol",
+	Revolver = "Pistol",
+	Deagle = "Pistol",
+	CombatKnife = "Knife",
+	Bayonet = "Knife",
+	Keris = "Knife",
+	Karambit = "Knife",
 }
 
 local function customModel(name)

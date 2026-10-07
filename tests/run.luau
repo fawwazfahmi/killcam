@@ -35,6 +35,9 @@ local ProgressConfig = require("../src/shared/Config/ProgressConfig")
 local Rank = require("../src/shared/Logic/Rank")
 local Prestige = require("../src/shared/Logic/Prestige")
 local Squad = require("../src/shared/Logic/Squad")
+local Session = require("../src/shared/Logic/Session")
+local ControlsConfig = require("../src/shared/Config/ControlsConfig")
+local SoundConfig = require("../src/shared/Config/SoundConfig")
 
 local Weapons = WeaponConfig.Weapons
 local Validation = WeaponConfig.Validation
@@ -79,7 +82,7 @@ end
 ---------------------------------------------------------------- Recoil
 
 test("recoil follows the pattern in order", function()
-	local recoil = Weapons.Rifle.recoil
+	local recoil = Weapons.M16.recoil
 	for index, kick in recoil.pattern do
 		local pitch, yaw = Recoil.kickFor(recoil, index)
 		equal(pitch, kick[1], "pitch of shot " .. index)
@@ -88,7 +91,7 @@ test("recoil follows the pattern in order", function()
 end)
 
 test("recoil loops from loopFrom after the pattern ends", function()
-	local recoil = Weapons.Rifle.recoil
+	local recoil = Weapons.M16.recoil
 	local count = #recoil.pattern
 	local span = count - recoil.loopFrom + 1
 	equal(Recoil.kickFor(recoil, count + 1), recoil.pattern[recoil.loopFrom][1], "first looped shot")
@@ -97,28 +100,28 @@ test("recoil loops from loopFrom after the pattern ends", function()
 end)
 
 test("recoil burst resets after a pause", function()
-	local recoil = Weapons.Rifle.recoil
+	local recoil = Weapons.M16.recoil
 	equal(Recoil.nextShotIndex(recoil, 5, 0.1), 6, "sustained fire")
 	equal(Recoil.nextShotIndex(recoil, 5, recoil.resetTime + 0.01), 1, "after a pause")
 	equal(Recoil.nextShotIndex(recoil, 0, math.huge), 1, "first shot ever")
 end)
 
 test("the view never keeps climbing once firing stops", function()
-	local recoil = Weapons.Rifle.recoil
+	local recoil = Weapons.M16.recoil
 	local rate = recoil.recovery
-	local delay = math.min(Weapons.Rifle.fireInterval + 0.03, 0.25)
+	local delay = math.min(Weapons.M16.fireInterval + 0.03, 0.25)
 	local frame = 1 / 60
 
 	-- Hold the trigger for a mag's worth, applying each kick as the camera does.
 	local pitch, yaw, index, sinceShot = 0, 0, 0, 0
 	local history = {}
 	for shot = 1, 20 do
-		index = Recoil.nextShotIndex(recoil, index, Weapons.Rifle.fireInterval)
+		index = Recoil.nextShotIndex(recoil, index, Weapons.M16.fireInterval)
 		local kickPitch, kickYaw = Recoil.kickFor(recoil, index)
 		pitch, yaw = pitch + kickPitch, yaw + kickYaw
 		sinceShot = 0
 		-- The frames between this shot and the next.
-		for _ = 1, math.floor(Weapons.Rifle.fireInterval / frame) do
+		for _ = 1, math.floor(Weapons.M16.fireInterval / frame) do
 			sinceShot += frame
 			if sinceShot > delay then
 				pitch, yaw = Recoil.settle(rate, pitch, yaw, frame)
@@ -172,7 +175,7 @@ test("spread stance factors", function()
 end)
 
 test("bloom grows per shot, caps and decays to zero", function()
-	local spread = Weapons.Rifle.spread
+	local spread = Weapons.M16.spread
 	local bloom = 0
 	bloom = Spread.addShot(spread, bloom)
 	near(bloom, spread.bloomPerShot, 1e-9, "one shot")
@@ -185,12 +188,12 @@ test("bloom grows per shot, caps and decays to zero", function()
 end)
 
 test("current spread combines base, bloom and stance", function()
-	local spread = Weapons.Rifle.spread
+	local spread = Weapons.M16.spread
 	near(Spread.current(spread, WeaponConfig.Stance, 1, MOVING, false), (spread.base + 1) * 1.6, 1e-9, "rifle moving")
 end)
 
 test("sniper is exact only when scoped and still", function()
-	local spread = Weapons.Sniper.spread
+	local spread = Weapons.MSR.spread
 	local stance = WeaponConfig.Stance
 	equal(Spread.current(spread, stance, 0, STILL, true), 0, "scoped and still")
 	equal(Spread.current(spread, stance, 0, CROUCHED, true), 0, "scoped and crouched")
@@ -215,26 +218,26 @@ test("damage zones from part names", function()
 end)
 
 test("rifle kills in 1 headshot or 4 body shots", function()
-	equal(shotsToKill(Weapons.Rifle, "Head"), 1, "head")
-	equal(shotsToKill(Weapons.Rifle, "UpperTorso"), 4, "upper torso")
-	equal(shotsToKill(Weapons.Rifle, "LowerTorso"), 4, "lower torso")
-	equal(Damage.gun(Weapons.Rifle, "Limb"), 21, "limb")
+	equal(shotsToKill(Weapons.M16, "Head"), 1, "head")
+	equal(shotsToKill(Weapons.M16, "UpperTorso"), 4, "upper torso")
+	equal(shotsToKill(Weapons.M16, "LowerTorso"), 4, "lower torso")
+	equal(Damage.gun(Weapons.M16, "Limb"), 21, "limb")
 end)
 
 test("pistol kills in 2 headshots or 5 body shots", function()
-	equal(shotsToKill(Weapons.Pistol, "Head"), 2, "head")
-	equal(shotsToKill(Weapons.Pistol, "UpperTorso"), 5, "body")
+	equal(shotsToKill(Weapons.P2020, "Head"), 2, "head")
+	equal(shotsToKill(Weapons.P2020, "UpperTorso"), 5, "body")
 end)
 
 test("sniper kills from the chest up only", function()
-	equal(shotsToKill(Weapons.Sniper, "Head"), 1, "head")
-	equal(shotsToKill(Weapons.Sniper, "UpperTorso"), 1, "upper torso")
-	equal(Damage.gun(Weapons.Sniper, "LowerTorso"), 85, "lower torso")
-	equal(Damage.gun(Weapons.Sniper, "Limb"), 70, "limb")
+	equal(shotsToKill(Weapons.MSR, "Head"), 1, "head")
+	equal(shotsToKill(Weapons.MSR, "UpperTorso"), 1, "upper torso")
+	equal(shotsToKill(Weapons.MSR, "LowerTorso"), 2, "lower torso: not in one")
+	equal(shotsToKill(Weapons.MSR, "Limb"), 2, "limb: not in one")
 end)
 
 test("knife backstab cone", function()
-	local knife = Weapons.Knife
+	local knife = Weapons.CombatKnife
 	local target, look = v(0, 0, 0), v(0, 0, -1) -- target faces -Z, so its back is toward +Z
 	equal(Damage.knife(knife, v(0, 0, 5), target, look), knife.backDamage, "directly behind")
 	equal(Damage.knife(knife, v(0, 0, -5), target, look), knife.frontDamage, "in front")
@@ -541,8 +544,8 @@ test("a loadout from a client is checked field by field", function()
 	end
 	equal(rejected(nil), true, "nothing")
 	equal(rejected("Rifle"), true, "not a table")
-	equal(rejected(loadoutWith({ primary = "Knife" })), true, "a primary that is not one")
-	equal(rejected(loadoutWith({ nade = "Rifle" })), true, "a grenade that is not one")
+	equal(rejected(loadoutWith({ primary = "CombatKnife" })), true, "a primary that is not one")
+	equal(rejected(loadoutWith({ nade = "M16" })), true, "a grenade that is not one")
 	equal(rejected(loadoutWith({ tactical = "Frag" })), true, "an unknown tactical item")
 	equal(rejected(loadoutWith({ helmet = "Plate" })), true, "a piece from the wrong slot")
 	equal(rejected(loadoutWith({ boots = 7 })), true, "a wrong type")
@@ -552,7 +555,7 @@ end)
 
 test("the helmet covers headshots and body armour covers the rest, by weapon class", function()
 	local guard = statsWith({ helmet = "Guard", body = "Light" })
-	local rifle, sniper = Weapons.Rifle, Weapons.Sniper
+	local rifle, sniper = Weapons.M16, Weapons.MSR
 	near(Loadout.damage(guard, "Rifle", "Head", rifle.damage.Head), rifle.damage.Head * 0.5, 1e-9, "guarded head")
 	equal(Loadout.damage(guard, "Rifle", "UpperTorso", 28), 28, "no body armour")
 	equal(Loadout.damage(guard, "Sniper", "Head", sniper.damage.Head) >= MatchConfig.maxHealth, true, "a sniper headshot still kills")
@@ -602,11 +605,11 @@ local function slotsOf(loadout)
 end
 
 test("one of each at spawn: primary, handgun, knife, grenade, and no bomb", function()
-	local slots = slotsOf(loadoutWith({ primary = "Sniper", nade = "Smoke", gloves = "Quick" }))
+	local slots = slotsOf(loadoutWith({ primary = "MSR", nade = "Smoke", gloves = "Quick" }))
 	equal(#slots, Loadout.SLOT_COUNT, "always seven entries")
-	equal(slots[Loadout.PRIMARY], "Sniper", "slot 1")
-	equal(slots[Loadout.SECONDARY], "Pistol", "slot 2")
-	equal(slots[Loadout.MELEE], "Knife", "slot 3")
+	equal(slots[Loadout.PRIMARY], "MSR", "slot 1")
+	equal(slots[Loadout.SECONDARY], "P2020", "slot 2")
+	equal(slots[Loadout.MELEE], "CombatKnife", "slot 3")
 	equal(slots[Loadout.NADE], "Smoke", "slot 4")
 	equal(slots[Loadout.BOMB], false, "slot 5 is empty, not missing")
 	equal(slots[Loadout.PRIMARY2], false, "no second primary")
@@ -614,15 +617,15 @@ test("one of each at spawn: primary, handgun, knife, grenade, and no bomb", func
 end)
 
 test("a second primary or grenade is carried only with the gloves for it", function()
-	local picks = { primary = "Rifle", primary2 = "Sniper", nade = "Frag", nade2 = "Smoke" }
+	local picks = { primary = "M16", primary2 = "MSR", nade = "Frag", nade2 = "Smoke" }
 
 	local plain = slotsOf(loadoutWith(with(picks, { gloves = "Quick" })))
 	equal(plain[Loadout.PRIMARY2], false, "picked, but not carried without the gloves")
 	equal(plain[Loadout.NADE2], false, "nor the second grenade")
 
 	local gunner = slotsOf(loadoutWith(with(picks, { gloves = "Gunner" })))
-	equal(gunner[Loadout.PRIMARY2], "Sniper", "gunner gloves carry the second primary")
-	equal(gunner[Loadout.SECONDARY], "Pistol", "and the handgun is kept")
+	equal(gunner[Loadout.PRIMARY2], "MSR", "gunner gloves carry the second primary")
+	equal(gunner[Loadout.SECONDARY], "P2020", "and the handgun is kept")
 	equal(gunner[Loadout.NADE2], false, "but not a second grenade")
 
 	local grenadier = slotsOf(loadoutWith(with(picks, { gloves = "Grenadier" })))
@@ -630,26 +633,26 @@ test("a second primary or grenade is carried only with the gloves for it", funct
 	equal(grenadier[Loadout.PRIMARY2], false, "but not a second primary")
 
 	-- Never two of the same, however the loadout arrives.
-	local same = with(loadoutWith({ gloves = "Gunner" }), { primary = "Rifle", primary2 = "Rifle" })
+	local same = with(loadoutWith({ gloves = "Gunner" }), { primary = "M16", primary2 = "M16" })
 	equal(slotsOf(same)[Loadout.PRIMARY2], false, "the same gun twice is one gun")
 	local clean = Loadout.sanitize(WeaponConfig, TacticalConfig, ArmorConfig, same)
 	equal(clean.primary2, nil, "and is dropped when a loadout is checked")
 
 	local sent = loadoutWith(with(picks, { gloves = "Gunner" }))
 	clean = Loadout.sanitize(WeaponConfig, TacticalConfig, ArmorConfig, sent)
-	equal(clean.primary2, "Sniper", "a real second primary is kept")
+	equal(clean.primary2, "MSR", "a real second primary is kept")
 	equal(clean.nade2, "Smoke", "and a real second grenade")
-	equal(Loadout.sanitize(WeaponConfig, TacticalConfig, ArmorConfig, with(sent, { primary2 = "Pistol" })), nil, "a handgun is not a primary")
+	equal(Loadout.sanitize(WeaponConfig, TacticalConfig, ArmorConfig, with(sent, { primary2 = "P2020" })), nil, "a handgun is not a primary")
 	equal(Loadout.sanitize(WeaponConfig, TacticalConfig, ArmorConfig, with(sent, { nade2 = 4 })), nil, "nor is a number a grenade")
 
 	local carried = Loadout.carried(sent, Loadout.stats(ArmorConfig, sent))
-	equal(carried.primary2, "Sniper", "what is carried keeps what the gloves allow")
+	equal(carried.primary2, "MSR", "what is carried keeps what the gloves allow")
 	equal(carried.nade2, nil, "and leaves out what they do not")
 	equal(sent.nade2, "Smoke", "without touching the loadout it was given")
 end)
 
 test("a number key steps through its own slots, and goes to its first from anywhere else", function()
-	local both = held("Rifle", "Pistol", "Knife", "Frag", "Sniper", "Smoke")
+	local both = held("M16", "P2020", "CombatKnife", "Frag", "MSR", "Smoke")
 	local function key(slots, equipped, number)
 		return Loadout.slotForKey(slots, equipped, number)
 	end
@@ -664,27 +667,27 @@ test("a number key steps through its own slots, and goes to its first from anywh
 	equal(key(both, Loadout.PRIMARY, 5), nil, "5 with no bomb")
 	equal(key(both, Loadout.PRIMARY, 9), nil, "a key with no slots")
 
-	local one = held("Rifle", "Pistol", "Knife", "Frag")
+	local one = held("M16", "P2020", "CombatKnife", "Frag")
 	equal(key(one, Loadout.PRIMARY, 1), nil, "1 again with only one primary")
 
 	-- The first primary was dropped, or the first grenade thrown.
-	local second = held(nil, "Pistol", "Knife", nil, "Sniper", "Smoke")
+	local second = held(nil, "P2020", "CombatKnife", nil, "MSR", "Smoke")
 	equal(key(second, Loadout.SECONDARY, 1), Loadout.PRIMARY2, "1 finds the primary that is left")
 	equal(key(second, Loadout.SECONDARY, 4), Loadout.NADE2, "4 finds the grenade that is left")
 end)
 
 test("the mouse wheel steps through everything carried, in key order", function()
-	local both = held("Rifle", "Pistol", "Knife", "Frag", "Sniper", "Smoke")
+	local both = held("M16", "P2020", "CombatKnife", "Frag", "MSR", "Smoke")
 	local order = {}
 	local slot = Loadout.PRIMARY
 	for _ = 1, 6 do
 		table.insert(order, both[slot])
 		slot = Loadout.nextSlot(both, slot, 1)
 	end
-	equal(table.concat(order, " "), "Rifle Sniper Pistol Knife Frag Smoke", "forwards")
+	equal(table.concat(order, " "), "M16 MSR P2020 CombatKnife Frag Smoke", "forwards")
 	equal(slot, Loadout.PRIMARY, "and round to the start")
 	equal(Loadout.nextSlot(both, Loadout.PRIMARY, -1), Loadout.NADE2, "backwards wraps to the end")
-	equal(Loadout.nextSlot(held(nil, nil, "Knife"), Loadout.MELEE, 1), Loadout.MELEE, "nothing else to step to")
+	equal(Loadout.nextSlot(held(nil, nil, "CombatKnife"), Loadout.MELEE, 1), Loadout.MELEE, "nothing else to step to")
 end)
 
 test("picking up, falling back and dropping on death", function()
@@ -694,25 +697,25 @@ test("picking up, falling back and dropping on death", function()
 		return Loadout.slotForPickup(WeaponConfig, slots, stats, name)
 	end
 
-	equal(pickup(held("Rifle", "Pistol", "Knife"), plain, "Sniper"), nil, "hands full")
-	equal(pickup(held(nil, "Pistol", "Knife"), plain, "Sniper"), Loadout.PRIMARY, "primary into an empty slot 1")
-	equal(pickup(held("Rifle", nil, "Knife"), plain, "Pistol"), Loadout.SECONDARY, "handgun into an empty slot 2")
-	equal(pickup(held("Rifle", nil, "Knife"), plain, "Sniper"), nil, "one primary without the gloves, even with no handgun")
-	equal(pickup(held("Rifle", "Pistol", "Knife"), gunner, "Sniper"), Loadout.PRIMARY2, "a second primary with them")
-	equal(pickup(held("Rifle", "Pistol", "Knife", nil, "Sniper"), gunner, "Sniper"), nil, "never two of the same gun")
-	equal(pickup(held("Rifle", "Pistol", "Knife", nil, "Sniper"), gunner, "Rifle"), nil, "and never three primaries")
+	equal(pickup(held("M16", "P2020", "CombatKnife"), plain, "MSR"), nil, "hands full")
+	equal(pickup(held(nil, "P2020", "CombatKnife"), plain, "MSR"), Loadout.PRIMARY, "primary into an empty slot 1")
+	equal(pickup(held("M16", nil, "CombatKnife"), plain, "P2020"), Loadout.SECONDARY, "handgun into an empty slot 2")
+	equal(pickup(held("M16", nil, "CombatKnife"), plain, "MSR"), nil, "one primary without the gloves, even with no handgun")
+	equal(pickup(held("M16", "P2020", "CombatKnife"), gunner, "MSR"), Loadout.PRIMARY2, "a second primary with them")
+	equal(pickup(held("M16", "P2020", "CombatKnife", nil, "MSR"), gunner, "MSR"), nil, "never two of the same gun")
+	equal(pickup(held("M16", "P2020", "CombatKnife", nil, "MSR"), gunner, "M16"), nil, "and never three primaries")
 
-	equal(Loadout.fallbackSlot(held(nil, "Pistol", "Knife")), Loadout.SECONDARY, "next thing held")
-	equal(Loadout.fallbackSlot(held(nil, "Pistol", "Knife", nil, "Sniper")), Loadout.PRIMARY2, "the second primary before the handgun")
-	equal(Loadout.fallbackSlot(held(nil, nil, "Knife")), Loadout.MELEE, "down to the knife")
+	equal(Loadout.fallbackSlot(held(nil, "P2020", "CombatKnife")), Loadout.SECONDARY, "next thing held")
+	equal(Loadout.fallbackSlot(held(nil, "P2020", "CombatKnife", nil, "MSR")), Loadout.PRIMARY2, "the second primary before the handgun")
+	equal(Loadout.fallbackSlot(held(nil, nil, "CombatKnife")), Loadout.MELEE, "down to the knife")
 
 	local function dropped(slots)
 		return Loadout.deathDropSlot(WeaponConfig, slots)
 	end
-	equal(dropped(held("Rifle", "Pistol", "Knife", "Frag")), Loadout.PRIMARY, "the primary is the best gun")
-	equal(dropped(held(nil, "Pistol", "Knife", "Frag", "Sniper")), Loadout.PRIMARY2, "then the second primary")
-	equal(dropped(held(nil, "Pistol", "Knife", "Frag")), Loadout.SECONDARY, "otherwise the handgun")
-	equal(dropped(held(nil, nil, "Knife", "Frag")), nil, "a knife is not dropped")
+	equal(dropped(held("M16", "P2020", "CombatKnife", "Frag")), Loadout.PRIMARY, "the primary is the best gun")
+	equal(dropped(held(nil, "P2020", "CombatKnife", "Frag", "MSR")), Loadout.PRIMARY2, "then the second primary")
+	equal(dropped(held(nil, "P2020", "CombatKnife", "Frag")), Loadout.SECONDARY, "otherwise the handgun")
+	equal(dropped(held(nil, nil, "CombatKnife", "Frag")), nil, "a knife is not dropped")
 end)
 
 test("fall damage starts above the safe speed and boots scale it", function()
@@ -733,8 +736,8 @@ test("secondary and melee are loadout choices, checked like the rest", function(
 	local function rejected(choice)
 		return Loadout.sanitize(WeaponConfig, TacticalConfig, ArmorConfig, choice) == nil
 	end
-	equal(rejected(loadoutWith({ secondary = "Rifle" })), true, "a primary is not a secondary")
-	equal(rejected(loadoutWith({ melee = "Pistol" })), true, "a handgun is not a melee weapon")
+	equal(rejected(loadoutWith({ secondary = "M16" })), true, "a primary is not a secondary")
+	equal(rejected(loadoutWith({ melee = "P2020" })), true, "a handgun is not a melee weapon")
 	equal(rejected(with(defaults, { secondary = false })), true, "a missing secondary")
 	for _, list in { WeaponConfig.PrimaryOrder, WeaponConfig.SecondaryOrder, WeaponConfig.MeleeOrder } do
 		for _, name in list do
@@ -751,15 +754,15 @@ test("during a match only the weapons of a loadout can change", function()
 		equal(Loadout.isWeaponField(field), false, field .. " is set in the lobby")
 	end
 
-	local current = loadoutWith({ primary = "Rifle", nade = "Frag", tactical = "Stim", boots = "Soft" })
-	local wanted = loadoutWith({ primary = "Sniper", nade = "Smoke", tactical = "Cryo", boots = "Runner", helmet = "Listener" })
+	local current = loadoutWith({ primary = "M16", nade = "Frag", tactical = "Stim", boots = "Soft" })
+	local wanted = loadoutWith({ primary = "MSR", nade = "Smoke", tactical = "Cryo", boots = "Runner", helmet = "Listener" })
 	local merged = Loadout.withWeaponsFrom(current, wanted)
-	equal(merged.primary, "Sniper", "the primary changes")
+	equal(merged.primary, "MSR", "the primary changes")
 	equal(merged.nade, "Smoke", "the grenade changes")
 	equal(merged.tactical, "Stim", "the tactical item does not")
 	equal(merged.boots, "Soft", "nor the boots")
 	equal(merged.helmet, current.helmet, "nor the helmet")
-	equal(current.primary, "Rifle", "the loadout passed in is left alone")
+	equal(current.primary, "M16", "the loadout passed in is left alone")
 end)
 
 ---------------------------------------------------------------- Flash
@@ -806,7 +809,13 @@ test("the default loadout is free, and everything priced exists and has terms", 
 		equal(Economy.isFree(ShopConfig, field, option), true, field .. " default is free")
 		equal(Economy.terms(ShopConfig, field) ~= nil, true, field .. " has a timing")
 	end
-	local known = { primary = WeaponConfig.Primaries, nade = WeaponConfig.Nades, tactical = TacticalConfig.items }
+	local known = {
+		primary = WeaponConfig.Primaries,
+		secondary = WeaponConfig.Secondaries,
+		melee = WeaponConfig.Melees,
+		nade = WeaponConfig.Nades,
+		tactical = TacticalConfig.items,
+	}
 	for _, slot in ArmorConfig.slots do
 		known[slot] = ArmorConfig[slot]
 	end
@@ -853,11 +862,11 @@ end)
 
 
 test("weapons are sold by the hour of use and armour by the day", function()
-	local sniper = ShopConfig.prices.primary.Sniper
-	equal(Economy.price(ShopConfig, "primary", "Sniper", 1), sniper, "one hour of a weapon")
-	equal(Economy.price(ShopConfig, "primary", "Sniper", 5) < sniper * 5, true, "longer is cheaper per hour")
-	equal(Economy.price(ShopConfig, "primary", "Sniper", 2), nil, "two hours is not on sale")
-	equal(Economy.price(ShopConfig, "primary", "Sniper", 7), nil, "nor are seven: days are for armour")
+	local sniper = ShopConfig.prices.primary.MSR
+	equal(Economy.price(ShopConfig, "primary", "MSR", 1), sniper, "one hour of a weapon")
+	equal(Economy.price(ShopConfig, "primary", "MSR", 5) < sniper * 5, true, "longer is cheaper per hour")
+	equal(Economy.price(ShopConfig, "primary", "MSR", 2), nil, "two hours is not on sale")
+	equal(Economy.price(ShopConfig, "primary", "MSR", 7), nil, "nor are seven: days are for armour")
 
 	local runner = ShopConfig.prices.boots.Runner
 	equal(Economy.price(ShopConfig, "boots", "Runner", 1), runner, "one day of armour")
@@ -867,45 +876,45 @@ test("weapons are sold by the hour of use and armour by the day", function()
 	equal(Economy.price(ShopConfig, "boots", "Runner", 4), nil, "four days is not")
 	equal(Economy.price(ShopConfig, "boots", "Runner", 7) < runner * 7, true, "a week is cheaper per day")
 
-	equal(Economy.price(ShopConfig, "primary", "Rifle", 1), nil, "free things are not sold")
-	equal(Economy.price(ShopConfig, "nonsense", "Sniper", 1), nil, "unknown field")
+	equal(Economy.price(ShopConfig, "primary", "M16", 1), nil, "free things are not sold")
+	equal(Economy.price(ShopConfig, "nonsense", "MSR", 1), nil, "unknown field")
 
 	local profile = Economy.newProfile()
-	local ok, reason = Economy.buy(ShopConfig, profile, "primary", "Sniper", 1, 0)
+	local ok, reason = Economy.buy(ShopConfig, profile, "primary", "MSR", 1, 0)
 	equal(ok, false, "cannot afford it")
 	equal(reason, "NotEnoughPoints", "reason")
-	equal(select(2, Economy.buy(ShopConfig, profile, "primary", "Rifle", 1, 0)), "NotForSale", "free item")
+	equal(select(2, Economy.buy(ShopConfig, profile, "primary", "M16", 1, 0)), "NotForSale", "free item")
 
 	profile.points = sniper + 7
-	equal(Economy.buy(ShopConfig, profile, "primary", "Sniper", 1, 0), true, "bought")
+	equal(Economy.buy(ShopConfig, profile, "primary", "MSR", 1, 0), true, "bought")
 	equal(profile.points, 7, "points taken")
-	equal(Economy.owns(ShopConfig, profile, "primary", "Sniper", 0), true, "now owned")
-	equal(Economy.timeLeft(profile, "primary", "Sniper", 0), HOUR, "an hour of use")
+	equal(Economy.owns(ShopConfig, profile, "primary", "MSR", 0), true, "now owned")
+	equal(Economy.timeLeft(profile, "primary", "MSR", 0), HOUR, "an hour of use")
 end)
 
 test("a weapon rental only runs down while it is used", function()
 	local defaults = Loadout.default(WeaponConfig, TacticalConfig, ArmorConfig)
 	local profile = Economy.newProfile()
 	profile.points = 100000
-	Economy.buy(ShopConfig, profile, "primary", "Sniper", 1, 0)
+	Economy.buy(ShopConfig, profile, "primary", "MSR", 1, 0)
 
 	-- Spawning with it does not start a clock, and a month passing costs nothing.
-	equal(Economy.use(ShopConfig, profile, "primary", "Sniper", 0), true, "usable")
+	equal(Economy.use(ShopConfig, profile, "primary", "MSR", 0), true, "usable")
 	local later = 30 * DAY
-	equal(Economy.owns(ShopConfig, profile, "primary", "Sniper", later), true, "still owned a month on")
-	equal(Economy.timeLeft(profile, "primary", "Sniper", later), HOUR, "nothing has run down")
+	equal(Economy.owns(ShopConfig, profile, "primary", "MSR", later), true, "still owned a month on")
+	equal(Economy.timeLeft(profile, "primary", "MSR", later), HOUR, "nothing has run down")
 
 	-- Time alive with it in the loadout is what it costs.
-	Economy.consume(ShopConfig, profile, with(defaults, { primary = "Sniper" }), 600)
-	equal(Economy.timeLeft(profile, "primary", "Sniper", later), HOUR - 600, "ten minutes used")
+	Economy.consume(ShopConfig, profile, with(defaults, { primary = "MSR" }), 600)
+	equal(Economy.timeLeft(profile, "primary", "MSR", later), HOUR - 600, "ten minutes used")
 	Economy.consume(ShopConfig, profile, defaults, 600)
-	equal(Economy.timeLeft(profile, "primary", "Sniper", later), HOUR - 600, "playing without it costs nothing")
+	equal(Economy.timeLeft(profile, "primary", "MSR", later), HOUR - 600, "playing without it costs nothing")
 
-	Economy.consume(ShopConfig, profile, with(defaults, { primary = "Sniper" }), HOUR)
-	equal(Economy.owns(ShopConfig, profile, "primary", "Sniper", later), false, "used up")
-	equal(Economy.use(ShopConfig, profile, "primary", "Sniper", later), false, "and unusable")
+	Economy.consume(ShopConfig, profile, with(defaults, { primary = "MSR" }), HOUR)
+	equal(Economy.owns(ShopConfig, profile, "primary", "MSR", later), false, "used up")
+	equal(Economy.use(ShopConfig, profile, "primary", "MSR", later), false, "and unusable")
 	Economy.prune(profile, later)
-	equal(profile.rentals[Economy.key("primary", "Sniper")], nil, "pruned")
+	equal(profile.rentals[Economy.key("primary", "MSR")], nil, "pruned")
 end)
 
 test("an armour rental's clock starts at first use, then runs in real time", function()
@@ -944,33 +953,33 @@ test("buying more of a rental adds time to it", function()
 	Economy.buy(ShopConfig, profile, "boots", "Runner", 1, DAY)
 	equal(Economy.timeLeft(profile, "boots", "Runner", DAY), 4 * DAY, "a running rental is extended")
 
-	Economy.buy(ShopConfig, profile, "primary", "Sniper", 1, 0)
-	Economy.buy(ShopConfig, profile, "primary", "Sniper", 3, 0)
-	equal(Economy.timeLeft(profile, "primary", "Sniper", 0), 4 * HOUR, "hours of use stack too")
+	Economy.buy(ShopConfig, profile, "primary", "MSR", 1, 0)
+	Economy.buy(ShopConfig, profile, "primary", "MSR", 3, 0)
+	equal(Economy.timeLeft(profile, "primary", "MSR", 0), 4 * HOUR, "hours of use stack too")
 end)
 
 test("a loadout is checked against what the player owns", function()
 	local defaults = Loadout.default(WeaponConfig, TacticalConfig, ArmorConfig)
-	local wanted = with(defaults, { primary = "Sniper", boots = "Runner", helmet = "Listener" })
+	local wanted = with(defaults, { primary = "MSR", boots = "Runner", helmet = "Listener" })
 	local profile = Economy.newProfile()
 	profile.points = 100000
 
 	equal(Economy.ownsAll(ShopConfig, profile, defaults, 0), true, "the defaults are always allowed")
 	equal(Economy.ownsAll(ShopConfig, profile, wanted, 0), false, "unbought options are not")
 
-	Economy.buy(ShopConfig, profile, "primary", "Sniper", 1, 0)
+	Economy.buy(ShopConfig, profile, "primary", "MSR", 1, 0)
 	Economy.buy(ShopConfig, profile, "helmet", "Listener", 1, 0)
 	local allowed = Economy.equip(ShopConfig, profile, wanted, defaults, 0)
-	equal(allowed.primary, "Sniper", "the rented weapon is kept")
+	equal(allowed.primary, "MSR", "the rented weapon is kept")
 	equal(allowed.helmet, "Listener", "and the rented helmet")
 	equal(allowed.boots, defaults.boots, "the unrented boots fall back to the default")
 	equal(allowed.body, defaults.body, "free options pass through")
 	equal(Economy.timeLeft(profile, "helmet", "Listener", HOUR), DAY - HOUR, "equipping started the helmet's clock")
-	equal(Economy.timeLeft(profile, "primary", "Sniper", HOUR), HOUR, "but not the weapon's")
+	equal(Economy.timeLeft(profile, "primary", "MSR", HOUR), HOUR, "but not the weapon's")
 
 	local expired = Economy.equip(ShopConfig, profile, wanted, defaults, 2 * DAY)
 	equal(expired.helmet, defaults.helmet, "once expired the helmet falls back too")
-	equal(expired.primary, "Sniper", "the unused weapon is still there")
+	equal(expired.primary, "MSR", "the unused weapon is still there")
 end)
 
 ---------------------------------------------------------------- Queue
@@ -1414,6 +1423,171 @@ test("a squad is sent into a running match whole, on one team, or not at all", f
 	equal(select(2, Backfill.claim(claimed, 1, 102)), true, "but somebody alone can go anywhere")
 end)
 
+---------------------------------------------------------------- Sound
+
+test("every gun has a shot to play, and every sound is complete", function()
+	local count = 0
+	for name, sound in SoundConfig.sounds do
+		count += 1
+		equal(type(sound.id), "string", name .. " names a sound file")
+		local ours = string.sub(sound.id, 1, 11) == "rbxasset://" or string.sub(sound.id, 1, 13) == "rbxassetid://"
+		equal(ours or sound.id == "", true, name .. " is a Roblox asset, or left empty to be silent")
+		equal(sound.volume > 0 and sound.volume <= 2, true, name .. " has a sensible volume")
+		equal(sound.speed > 0, true, name .. " has a playback speed")
+	end
+	equal(count >= 10, true, "the sounds are all there")
+
+	for name, config in Weapons do
+		if config.kind == "Gun" then
+			local shot = SoundConfig.shots[config.class]
+			equal(shot ~= nil, true, name .. ": its class has a shot sound")
+			equal(SoundConfig.sounds[shot] ~= nil, true, name .. ": and that sound exists")
+			equal(SoundConfig.sounds[shot].range ~= nil, true, name .. ": which other players can hear from a distance")
+		end
+	end
+	-- A sniper should carry further than a handgun.
+	local sounds, shots = SoundConfig.sounds, SoundConfig.shots
+	equal(sounds[shots.Sniper].range > sounds[shots.Handgun].range, true, "the sniper is heard from furthest")
+	for _, name in { "Hit", "Headshot", "Kill", "Hurt", "Explosion", "Flash", "Swing", "Reload", "Equip" } do
+		equal(sounds[name] ~= nil, true, name .. " has a sound")
+	end
+end)
+
+---------------------------------------------------------------- Controls
+
+test("everything a player can do can be done on a keyboard, a controller and a touch screen", function()
+	local keys, pads, labels = {}, {}, {}
+	local count = 0
+	for name, action in ControlsConfig.actions do
+		count += 1
+		equal(type(action.hold), "boolean", name .. " says whether it is held or pressed")
+		for _, key in action.keys do
+			equal(keys[key], nil, "the key " .. key .. " does one thing (" .. name .. ")")
+			keys[key] = name
+		end
+		for _, button in action.pad do
+			equal(pads[button], nil, "the button " .. button .. " does one thing (" .. name .. ")")
+			pads[button] = name
+		end
+		if action.touch then
+			equal(labels[action.touch.label], nil, "the touch button " .. action.touch.label .. " is one button")
+			labels[action.touch.label] = name
+			equal(action.touch.size >= 40, true, name .. " is big enough for a thumb")
+		end
+		if action.switch then
+			equal(action.hold, true, name .. " can only be a switch if it is something held")
+		end
+	end
+	equal(count >= 14, true, "the actions are all there")
+
+	-- What the game needs in a fight has to be reachable on every kind of device.
+	for _, name in { "Fire", "Scope", "Reload", "Tactical", "NextWeapon", "Crouch", "Use", "Loadout" } do
+		local action = ControlsConfig.actions[name]
+		equal(#action.pad > 0, true, name .. " is on a controller")
+		equal(action.touch ~= nil, true, name .. " is on a touch screen")
+	end
+	for _, name in { "Fire", "Scope", "Reload", "Tactical", "Crouch", "Use" } do
+		local action = ControlsConfig.actions[name]
+		equal(#action.keys > 0 or action.mouse ~= nil, true, name .. " is on a keyboard or mouse")
+	end
+	for key = 1, 5 do
+		equal(ControlsConfig.actions["Slot" .. key] ~= nil, true, "number key " .. key .. " has a slot action")
+	end
+	equal(pads.ButtonA, nil, "A is left alone: Roblox uses it to jump")
+	equal(keys.Space, nil, "and so is the space bar")
+end)
+
+---------------------------------------------------------------- Saving across servers
+
+test("a profile open on one server makes another wait, until it is closed or abandoned", function()
+	local STALE = 150
+	equal(Session.heldElsewhere(nil, "match", 1000, STALE), false, "a new player has nothing open anywhere")
+	equal(Session.heldElsewhere({ points = 5 }, "match", 1000, STALE), false, "nor has a profile saved before sessions existed")
+
+	local opened = { points = 5, session = Session.stamp("lobby", 1000) }
+	equal(Session.heldElsewhere(opened, "match", 1001, STALE), true, "the lobby still has it: the match waits")
+	equal(Session.heldElsewhere(opened, "lobby", 1001, STALE), false, "the lobby itself does not wait for itself")
+
+	opened.session = nil -- the lobby's last save, as the player left
+	equal(Session.heldElsewhere(opened, "match", 1002, STALE), false, "closed: the match can open it")
+
+	local crashed = { points = 5, session = Session.stamp("lobby", 1000) }
+	equal(Session.heldElsewhere(crashed, "match", 1000 + STALE - 1, STALE), true, "a quiet server may only be slow")
+	equal(Session.heldElsewhere(crashed, "match", 1000 + STALE, STALE), false, "but after long enough it is taken to be gone")
+
+	equal(Session.heldElsewhere({ session = "nonsense" }, "match", 0, STALE), false, "a damaged mark is no mark")
+	equal(Session.heldElsewhere({ session = { server = "lobby" } }, "match", 5000, STALE), false, "nor is one with no time on it")
+end)
+
+test("a server that has lost a profile to another does not write over it", function()
+	equal(Session.mayWrite(nil, "match"), true, "nothing saved yet: write")
+	equal(Session.mayWrite({ points = 5 }, "match"), true, "nobody has it open: write")
+	equal(Session.mayWrite({ session = Session.stamp("match", 10) }, "match"), true, "we have it open: write")
+	equal(Session.mayWrite({ session = Session.stamp("lobby", 10) }, "match"), false, "another server has it: theirs is the newer")
+end)
+
+test("moving from lobby to match and back never loses what was earned", function()
+	-- A tiny data store, with the same take-it-or-leave-it update the real one has.
+	local STALE = 150
+	local stored = nil
+	local function update(change)
+		local result = change(stored)
+		if result ~= nil then
+			stored = result
+		end
+	end
+	local function open(server, now)
+		local waiting = false
+		update(function(found)
+			waiting = Session.heldElsewhere(found, server, now, STALE)
+			if waiting then
+				return nil
+			end
+			local record = if type(found) == "table" then table.clone(found) else {}
+			record.session = Session.stamp(server, now)
+			return record
+		end)
+		return not waiting, stored
+	end
+	local function save(server, profile, now, closing)
+		local written = false
+		update(function(found)
+			written = Session.mayWrite(found, server)
+			if not written then
+				return nil
+			end
+			local record = table.clone(profile)
+			record.session = if closing then nil else Session.stamp(server, now)
+			return record
+		end)
+		return written
+	end
+
+	equal(open("lobby", 100), true, "the lobby opens a new player's profile")
+	local inLobby = { points = 500 } -- they rent something, buy a revive
+
+	-- They are teleported. The match starts loading before the lobby has saved.
+	equal(open("match", 101), false, "the match finds it open in the lobby, and waits")
+	equal(save("lobby", inLobby, 101, true), true, "the lobby's last save goes through")
+	local ok, loaded = open("match", 104)
+	equal(ok, true, "now the match can open it")
+	equal(loaded.points, 500, "and sees everything the lobby saved")
+
+	-- The match pays out, then they go back to the lobby the same way.
+	local inMatch = { points = 900 }
+	equal(save("match", inMatch, 290, false), true, "the match saves as it goes, which keeps the profile marked as open")
+	equal(open("lobby2", 300), false, "the next lobby waits for the match")
+	equal(save("match", inMatch, 300, true), true, "the match's last save")
+	ok, loaded = open("lobby2", 303)
+	equal(ok, true, "opened")
+	equal(loaded.points, 900, "with the match's payout in it")
+
+	-- A server that froze, and comes back after its profile was taken as abandoned.
+	equal(open("slow", 303 + STALE + 1), true, "an abandoned profile can be opened elsewhere")
+	equal(save("lobby2", { points = 1 }, 303 + STALE + 2, true), false, "and the server that lost it cannot write over it")
+	equal(stored.points, 900, "so nothing is overwritten")
+end)
+
 ---------------------------------------------------------------- Squads
 
 local SQUAD = LobbyConfig.squad
@@ -1658,7 +1832,7 @@ test("every weapon belongs to a class that earns experience", function()
 	end
 	equal(Prestige.classOf(Weapons.Bomb), nil, "the bomb is not a weapon class")
 	equal(Prestige.classOf(Weapons.MP5), "SMG", "an SMG has its own")
-	equal(Prestige.classOf(Weapons.Pistol), "Handgun", "and so does the handgun")
+	equal(Prestige.classOf(Weapons.P2020), "Handgun", "and so does the handgun")
 end)
 
 test("weapon experience climbs through the materials a tier at a time", function()
@@ -1746,12 +1920,69 @@ test("an SMG never kills in one shot, and gives way to the carbine at range", fu
 	equal(found >= 3, true, "there are SMGs to choose from")
 end)
 
-test("every gun but the one everybody starts with has to be rented", function()
-	for _, name in WeaponConfig.PrimaryOrder do
-		local free = Economy.isFree(ShopConfig, "primary", name)
-		equal(free, name == WeaponConfig.DefaultPrimary, name .. (if free then " is free" else " is a rental"))
+test("every weapon but the three everybody starts with has to be rented", function()
+	local slots = {
+		primary = { order = WeaponConfig.PrimaryOrder, free = WeaponConfig.DefaultPrimary },
+		secondary = { order = WeaponConfig.SecondaryOrder, free = WeaponConfig.DefaultSecondary },
+		melee = { order = WeaponConfig.MeleeOrder, free = WeaponConfig.DefaultMelee },
+	}
+	for field, slot in slots do
+		for _, name in slot.order do
+			local free = Economy.isFree(ShopConfig, field, name)
+			equal(free, name == slot.free, name .. (if free then " is free" else " is a rental"))
+			equal(Weapons[name] ~= nil, true, name .. " exists")
+			equal(type(Weapons[name].displayName), "string", name .. " has a name")
+		end
 	end
 	equal(#WeaponConfig.PrimaryOrder >= 13, true, "the whole armoury is on the list")
+	equal(#WeaponConfig.SecondaryOrder, 4, "four handguns")
+	equal(#WeaponConfig.MeleeOrder, 4, "four knives")
+end)
+
+test("each handgun has its own job", function()
+	local sidearm = Weapons[WeaponConfig.DefaultSecondary]
+	for _, name in WeaponConfig.SecondaryOrder do
+		local gun = Weapons[name]
+		equal(gun.class, "Handgun", name .. " is a handgun")
+		equal(gun.automatic, false, name .. " fires a shot a pull")
+		equal(shotsToKill(gun, "UpperTorso") >= 2, true, name .. " never kills with one body shot")
+	end
+	equal(shotsToKill(Weapons.Deagle, "UpperTorso"), 2, "the Desert Eagle: two to the body")
+	equal(shotsToKill(Weapons.Deagle, "Head"), 1, "one to the head")
+	equal(shotsToKill(Weapons.Revolver, "Head"), 1, "the revolver: one to the head")
+	equal(shotsToKill(Weapons.Revolver, "UpperTorso"), 3, "three to the body")
+	equal(shotsToKill(Weapons.Glock21, "UpperTorso"), shotsToKill(sidearm, "UpperTorso") - 1, "the Glock: a body shot fewer than the sidearm")
+	equal(WeaponConfig.DefaultSecondary, "P2020", "the P2020 is the sidearm everybody starts with")
+	for _, name in WeaponConfig.SecondaryOrder do
+		if name ~= WeaponConfig.DefaultSecondary then
+			equal(Weapons[name].magazine < sidearm.magazine, true, name .. " carries fewer rounds than the sidearm")
+		end
+	end
+	-- The hard hitters pay for it in how fast they fire.
+	equal(Weapons.Deagle.fireInterval > 2 * sidearm.fireInterval, true, "the Desert Eagle is slow")
+	equal(Weapons.Revolver.fireInterval > 2 * sidearm.fireInterval, true, "so is the revolver")
+end)
+
+test("each knife trades reach, speed and damage, and all of them backstab", function()
+	local field = Weapons[WeaponConfig.DefaultMelee]
+	for _, name in WeaponConfig.MeleeOrder do
+		local knife = Weapons[name]
+		equal(knife.kind, "Melee", name .. " is a melee weapon")
+		equal(knife.backDamage >= MatchConfig.maxHealth, true, name .. " kills from behind")
+		equal(knife.frontDamage < MatchConfig.maxHealth, true, name .. " does not kill in one from the front")
+		equal(knife.backCos > 0 and knife.backCos < 1, true, name .. " has a real backstab cone")
+	end
+	equal(WeaponConfig.DefaultMelee, "CombatKnife", "the military knife is the one everybody starts with")
+	for _, name in WeaponConfig.MeleeOrder do
+		if name ~= WeaponConfig.DefaultMelee then
+			equal(Weapons[name].frontDamage < field.frontDamage, true, name .. " hits less hard from the front than the military knife")
+			equal(Weapons[name].swingInterval <= field.swingInterval, true, name .. " is no slower")
+		end
+	end
+	equal(Weapons.Karambit.swingInterval < Weapons.Bayonet.swingInterval, true, "the karambit is the fastest")
+	equal(Weapons.Karambit.reach < field.reach, true, "and the shortest")
+	equal(Weapons.Bayonet.reach > field.reach, true, "the bayonet reaches furthest")
+	equal(Weapons.Keris.backCos < field.backCos, true, "the keris backstabs from further round")
 end)
 
 test("a side left on its own wins, but only when it is truly alone", function()
@@ -1852,11 +2083,11 @@ test("every gun starts with a full magazine and three more in reserve", function
 			equal(ammo.reserve, 3 * config.magazine, name .. " reserve is three magazines")
 		end
 	end
-	equal(Ammo.full(Weapons.Rifle).mag .. "/" .. Ammo.full(Weapons.Rifle).reserve, "30/90", "the rifle")
+	equal(Ammo.full(Weapons.M16).mag .. "/" .. Ammo.full(Weapons.M16).reserve, "30/90", "the rifle")
 end)
 
 test("a reload tops the magazine up and wastes nothing", function()
-	local rifle = Weapons.Rifle
+	local rifle = Weapons.M16
 	local ammo = { mag = 12, reserve = 90 }
 	equal(Ammo.canReload(rifle, ammo), true, "room in the magazine")
 	equal(Ammo.reload(rifle, ammo), 18, "eighteen rounds move")
@@ -1914,66 +2145,66 @@ end)
 test("renting something again clears the note that it ran out", function()
 	local profile = Economy.newProfile()
 	profile.points = 100000
-	Economy.buy(ShopConfig, profile, "primary", "Sniper", 1, 0)
-	Economy.consume(ShopConfig, profile, { primary = "Sniper" }, HOUR)
+	Economy.buy(ShopConfig, profile, "primary", "MSR", 1, 0)
+	Economy.consume(ShopConfig, profile, { primary = "MSR" }, HOUR)
 	Economy.prune(profile, 0)
-	equal(profile.expired[Economy.key("primary", "Sniper")], true, "noted")
+	equal(profile.expired[Economy.key("primary", "MSR")], true, "noted")
 
-	Economy.buy(ShopConfig, profile, "primary", "Sniper", 1, 0)
-	equal(profile.expired[Economy.key("primary", "Sniper")], nil, "renewed, so nothing to tell them")
-	equal(Economy.owns(ShopConfig, profile, "primary", "Sniper", 0), true, "and owned again")
+	Economy.buy(ShopConfig, profile, "primary", "MSR", 1, 0)
+	equal(profile.expired[Economy.key("primary", "MSR")], nil, "renewed, so nothing to tell them")
+	equal(Economy.owns(ShopConfig, profile, "primary", "MSR", 0), true, "and owned again")
 end)
 
 test("what is taken into a match stays usable until that match is over", function()
 	local defaults = Loadout.default(WeaponConfig, TacticalConfig, ArmorConfig)
-	local wanted = with(defaults, { primary = "Sniper", boots = "Runner" })
+	local wanted = with(defaults, { primary = "MSR", boots = "Runner" })
 	local profile = Economy.newProfile()
 	profile.points = 100000
-	Economy.buy(ShopConfig, profile, "primary", "Sniper", 1, 0)
+	Economy.buy(ShopConfig, profile, "primary", "MSR", 1, 0)
 	Economy.buy(ShopConfig, profile, "boots", "Runner", 1, 0)
 
 	local held = {}
 	local first = Economy.equip(ShopConfig, profile, wanted, defaults, 0, held)
-	equal(first.primary, "Sniper", "spawned with the rifle")
-	equal(held[Economy.key("primary", "Sniper")], true, "which is now held")
+	equal(first.primary, "MSR", "spawned with the rifle")
+	equal(held[Economy.key("primary", "MSR")], true, "which is now held")
 	equal(held[Economy.key("boots", "Runner")], true, "and so are the boots")
 	equal(held[Economy.key("body", defaults.body)], nil, "free options are not rentals")
 
 	-- Both run out mid-match: the rifle is used up, the boots' day ends.
 	Economy.consume(ShopConfig, profile, first, 2 * HOUR)
 	local later = 2 * DAY
-	equal(Economy.owns(ShopConfig, profile, "primary", "Sniper", later), false, "used up, as far as the shop goes")
-	equal(Economy.owns(ShopConfig, profile, "primary", "Sniper", later, held), true, "but still theirs in this match")
+	equal(Economy.owns(ShopConfig, profile, "primary", "MSR", later), false, "used up, as far as the shop goes")
+	equal(Economy.owns(ShopConfig, profile, "primary", "MSR", later, held), true, "but still theirs in this match")
 	equal(Economy.ownsAll(ShopConfig, profile, wanted, later, held), true, "so the loadout still passes")
 
 	local nextLife = Economy.equip(ShopConfig, profile, wanted, defaults, later, held)
-	equal(nextLife.primary, "Sniper", "they respawn with it")
+	equal(nextLife.primary, "MSR", "they respawn with it")
 	equal(nextLife.boots, "Runner", "and with the boots")
 
 	-- Saving in the middle of the match must not take it away either.
 	Economy.prune(profile, later)
 	local afterSave = Economy.equip(ShopConfig, profile, wanted, defaults, later, held)
-	equal(afterSave.primary, "Sniper", "still held after the rental is pruned")
+	equal(afterSave.primary, "MSR", "still held after the rental is pruned")
 
 	-- The match ends: nothing is held any more.
 	local nextMatch = Economy.equip(ShopConfig, profile, wanted, defaults, later, {})
 	equal(nextMatch.primary, defaults.primary, "next match it is the default rifle")
 	equal(nextMatch.boots, defaults.boots, "and the default boots")
-	equal(profile.expired[Economy.key("primary", "Sniper")], true, "and the player is owed a notice")
+	equal(profile.expired[Economy.key("primary", "MSR")], true, "and the player is owed a notice")
 end)
 
 test("an unowned item cannot be slipped into a match through the held list", function()
 	local defaults = Loadout.default(WeaponConfig, TacticalConfig, ArmorConfig)
 	local profile = Economy.newProfile()
 	local held = {}
-	local got = Economy.equip(ShopConfig, profile, with(defaults, { primary = "Sniper" }), defaults, 0, held)
+	local got = Economy.equip(ShopConfig, profile, with(defaults, { primary = "MSR" }), defaults, 0, held)
 	equal(got.primary, defaults.primary, "never rented, so not given")
 	equal(next(held), nil, "and nothing is held")
 end)
 
 test("a saved loadout loses only what ran out", function()
 	local defaults = Loadout.default(WeaponConfig, TacticalConfig, ArmorConfig)
-	local saved = with(defaults, { primary = "Sniper", helmet = "Listener" })
+	local saved = with(defaults, { primary = "MSR", helmet = "Listener" })
 	local profile = Economy.newProfile()
 	profile.points = 100000
 	Economy.buy(ShopConfig, profile, "helmet", "Listener", 1, 0)
@@ -2080,22 +2311,22 @@ end)
 test("a second primary is owned as a primary", function()
 	local profile = Economy.newProfile()
 	profile.points = 100000
-	equal(Economy.owns(ShopConfig, profile, "primary2", "Sniper", 0), false, "not rented")
+	equal(Economy.owns(ShopConfig, profile, "primary2", "MSR", 0), false, "not rented")
 	equal(Economy.owns(ShopConfig, profile, "primary2", WeaponConfig.DefaultPrimary, 0), true, "the free rifle is free in either place")
-	Economy.buy(ShopConfig, profile, "primary", "Sniper", 1, 0)
-	equal(Economy.owns(ShopConfig, profile, "primary2", "Sniper", 0), true, "renting it once covers both places")
+	Economy.buy(ShopConfig, profile, "primary", "MSR", 1, 0)
+	equal(Economy.owns(ShopConfig, profile, "primary2", "MSR", 0), true, "renting it once covers both places")
 	equal(Economy.owns(ShopConfig, profile, "nade2", "Smoke", 0), false, "a grenade not rented")
 
 	-- Time alive with it as the second primary runs it down just the same.
-	local loadout = with(Loadout.default(WeaponConfig, TacticalConfig, ArmorConfig), { primary2 = "Sniper" })
+	local loadout = with(Loadout.default(WeaponConfig, TacticalConfig, ArmorConfig), { primary2 = "MSR" })
 	Economy.consume(ShopConfig, profile, loadout, 600)
-	equal(Economy.timeLeft(profile, "primary", "Sniper", 0), HOUR - 600, "ten minutes used")
+	equal(Economy.timeLeft(profile, "primary", "MSR", 0), HOUR - 600, "ten minutes used")
 end)
 
 test("a weapon not carried last life costs points, and only that", function()
 	local fee = ShopConfig.matchSwap.weaponPoints
 	local fields = Loadout.WEAPON_FIELDS
-	local before = { primary = "Rifle", secondary = "Pistol", melee = "Knife", nade = "Frag", boots = "Soft" }
+	local before = { primary = "M16", secondary = "P2020", melee = "CombatKnife", nade = "Frag", boots = "Soft" }
 	local function charge(points, wanted)
 		local profile = Economy.newProfile()
 		profile.points = points
@@ -2108,21 +2339,21 @@ test("a weapon not carried last life costs points, and only that", function()
 	equal(went, true, "and go through")
 	equal(left, 100, "points untouched")
 
-	got, cost, went, left = charge(100, with(before, { primary = "Sniper" }))
+	got, cost, went, left = charge(100, with(before, { primary = "MSR" }))
 	equal(cost, fee, "one new weapon")
-	equal(got.primary, "Sniper", "which they get")
+	equal(got.primary, "MSR", "which they get")
 	equal(left, 100 - fee, "and pay for")
 
-	got, cost = charge(100, with(before, { primary = "Sniper", nade = "Smoke" }))
+	got, cost = charge(100, with(before, { primary = "MSR", nade = "Smoke" }))
 	equal(cost, 2 * fee, "a new weapon and a new grenade")
 
-	got, cost = charge(100, with(before, { primary2 = "Sniper" }))
+	got, cost = charge(100, with(before, { primary2 = "MSR" }))
 	equal(cost, fee, "a second primary is one more weapon")
 
-	local two = with(before, { primary2 = "Sniper" })
+	local two = with(before, { primary2 = "MSR" })
 	local profile = Economy.newProfile()
 	profile.points = 100
-	local _, swapCost = Economy.chargeSwaps(ShopConfig, profile, two, with(before, { primary = "Sniper", primary2 = "Rifle" }), fields)
+	local _, swapCost = Economy.chargeSwaps(ShopConfig, profile, two, with(before, { primary = "MSR", primary2 = "M16" }), fields)
 	equal(swapCost, 0, "the same two guns the other way round are not new")
 	_, swapCost = Economy.chargeSwaps(ShopConfig, profile, two, before, fields)
 	equal(swapCost, 0, "nor is carrying fewer")
@@ -2134,19 +2365,19 @@ end)
 
 test("a weapon change that cannot be paid for does not happen at all", function()
 	local fee = ShopConfig.matchSwap.weaponPoints
-	local before = { primary = "Rifle", secondary = "Pistol", melee = "Knife", nade = "Frag", boots = "Soft" }
+	local before = { primary = "M16", secondary = "P2020", melee = "CombatKnife", nade = "Frag", boots = "Soft" }
 	local profile = Economy.newProfile()
 	profile.points = 2 * fee - 1 -- enough for one new weapon, not two
 
-	local wanted = with(before, { primary = "Sniper", nade = "Smoke", boots = "Runner" })
+	local wanted = with(before, { primary = "MSR", nade = "Smoke", boots = "Runner" })
 	local got, cost, went = Economy.chargeSwaps(ShopConfig, profile, before, wanted, Loadout.WEAPON_FIELDS)
 	equal(went, false, "refused")
 	equal(cost, 0, "nothing charged")
 	equal(profile.points, 2 * fee - 1, "points untouched")
-	equal(got.primary, "Rifle", "the old primary stays")
+	equal(got.primary, "M16", "the old primary stays")
 	equal(got.nade, "Frag", "and the old grenade: it is all or nothing")
 	equal(got.boots, "Runner", "but the rest of the loadout is as asked")
-	equal(wanted.primary, "Sniper", "and what was asked for is not altered")
+	equal(wanted.primary, "MSR", "and what was asked for is not altered")
 end)
 
 print(string.format("%d passed, %d failed", passed, failed))

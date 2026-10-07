@@ -72,6 +72,29 @@ def _shot(scene, path, location, target, ortho_scale=None, lens=None, size=(1600
     bpy.data.objects.remove(obj)
 
 
+ANGLE_LENS = 62  # mm, on Blender's 36 mm sensor
+MARGIN = 1.08
+
+
+def _reach(low, high, centre, toward, lens, aspect):
+    """How far back along `toward` a camera looking at `centre` has to stand
+    for the whole box to be in the picture. A weapon that is tall as well as
+    long (a hooked knife, say) needs more room than its length suggests."""
+    forward = -toward
+    right = forward.cross(Vector((0, 0, 1))).normalized()
+    up = right.cross(forward)
+    across = 18 / lens  # tangent of half the view, side to side
+    down = across / aspect
+    farthest = 0.0
+    for x in (low.x, high.x):
+        for y in (low.y, high.y):
+            for z in (low.z, high.z):
+                corner = Vector((x, y, z)) - centre
+                needed = corner.dot(toward) + max(abs(corner.dot(right)) / across, abs(corner.dot(up)) / down)
+                farthest = max(farthest, needed)
+    return farthest * MARGIN
+
+
 def _wood_grain(material):
     """Preview only: grain along the length of the wood. Runs after export, so
     the GLB keeps a plain colour."""
@@ -110,10 +133,9 @@ def render(gun, path, samples=96):
     side = path.with_name(path.stem + "_side.png")
     angle = path.with_name(path.stem + "_angle.png")
     _shot(scene, side, centre + Vector((extent * 3, 0, 0)), centre, ortho_scale=extent * 1.08)
-    _shot(
-        scene, angle,
-        centre + Vector((extent * 1.45, extent * 1.05, extent * 0.68)), centre, lens=62,
-    )
+    toward = Vector((1.45, 1.05, 0.68))
+    distance = max(extent * toward.length, _reach(low, high, centre, toward.normalized(), ANGLE_LENS, 1600 / 760))
+    _shot(scene, angle, centre + toward.normalized() * distance, centre, lens=ANGLE_LENS)
 
     label = f"{gun.name}  -  {sum(gun.triangles().values())} triangles, {len(gun.objects)} parts"
     sheet = Image.new("RGB", (1600, 760 * 2), BACKGROUND)

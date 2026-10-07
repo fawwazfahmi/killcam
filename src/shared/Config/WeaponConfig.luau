@@ -4,9 +4,9 @@
 local WeaponConfig = {}
 
 -- Slots 1 to 3: what can be picked for each, and the order the menu lists them in.
-WeaponConfig.DefaultPrimary = "Rifle"
+WeaponConfig.DefaultPrimary = "M16"
 WeaponConfig.Primaries = {
-	Rifle = true,
+	M16 = true,
 	AK47 = true,
 	HK416 = true,
 	SCAR = true,
@@ -15,14 +15,13 @@ WeaponConfig.Primaries = {
 	MP5 = true,
 	MAC10 = true,
 	MP7 = true,
-	Sniper = true,
 	Dragunov = true,
 	Scout = true,
 	AWP = true,
 	MSR = true,
 }
 WeaponConfig.PrimaryOrder = {
-	"Rifle",
+	"M16",
 	"AK47",
 	"HK416",
 	"SCAR",
@@ -31,20 +30,19 @@ WeaponConfig.PrimaryOrder = {
 	"MP5",
 	"MAC10",
 	"MP7",
-	"Sniper",
 	"Dragunov",
 	"Scout",
 	"AWP",
 	"MSR",
 }
 
-WeaponConfig.DefaultSecondary = "Pistol"
-WeaponConfig.Secondaries = { Pistol = true }
-WeaponConfig.SecondaryOrder = { "Pistol" }
+WeaponConfig.DefaultSecondary = "P2020"
+WeaponConfig.Secondaries = { P2020 = true, Glock21 = true, Revolver = true, Deagle = true }
+WeaponConfig.SecondaryOrder = { "P2020", "Glock21", "Revolver", "Deagle" }
 
-WeaponConfig.DefaultMelee = "Knife"
-WeaponConfig.Melees = { Knife = true }
-WeaponConfig.MeleeOrder = { "Knife" }
+WeaponConfig.DefaultMelee = "CombatKnife"
+WeaponConfig.Melees = { CombatKnife = true, Bayonet = true, Keris = true, Karambit = true }
+WeaponConfig.MeleeOrder = { "CombatKnife", "Bayonet", "Keris", "Karambit" }
 
 -- Slot 4 holds one grenade of the type picked in the loadout.
 WeaponConfig.DefaultNade = "Frag"
@@ -71,11 +69,13 @@ WeaponConfig.Validation = {
 WeaponConfig.Flinch = { body = 1.2, head = 2.6 }
 
 WeaponConfig.Weapons = {
-	Rifle = {
+	-- The rifle everybody starts with, and the one the others are measured against.
+	M16 = {
 		kind = "Gun",
-		displayName = "KR-9 Carbine",
+		displayName = "M16",
+		note = "Steady and dependable",
 		class = "Rifle", -- what body armour sorts weapons by
-		model = "Rifle",
+		model = "M16",
 		automatic = true,
 		fireInterval = 0.10,
 		magazine = 30,
@@ -108,7 +108,7 @@ WeaponConfig.Weapons = {
 		},
 	},
 
-	-- Hits harder than the KR-9 and fires a touch slower; the climb is steeper.
+	-- Hits harder than the M16 and fires a touch slower; the climb is steeper.
 	AK47 = {
 		kind = "Gun",
 		displayName = "AK-47",
@@ -398,37 +398,6 @@ WeaponConfig.Weapons = {
 		},
 	},
 
-	Sniper = {
-		kind = "Gun",
-		displayName = "Vantage Bolt",
-		class = "Sniper",
-		model = "Sniper",
-		automatic = false,
-		fireInterval = 1.2,
-		quickSwitchInterval = 0.7, -- shortest gap between shots when re-equipped in between
-		magazine = 5,
-		reserve = 15,
-		reloadTime = 3.0,
-		equipTime = 0.35,
-		range = 1200,
-		damage = { Head = 200, UpperTorso = 100, LowerTorso = 85, Limb = 70 },
-		spread = {
-			base = 5,
-			scopedBase = 0,
-			scopedMovingBase = 2,
-			bloomPerShot = 0,
-			maxBloom = 0,
-			recovery = 1,
-		},
-		recoil = {
-			resetTime = 0.1,
-			recovery = 10,
-			loopFrom = 1,
-			pattern = { { 2.0, 0.0 } },
-		},
-		scope = { fov = 20, sensitivity = 0.3 },
-	},
-
 	-- Semi-automatic: no one-shot to the body, but it fires as fast as you can click.
 	Dragunov = {
 		kind = "Gun",
@@ -561,39 +530,160 @@ WeaponConfig.Weapons = {
 		scope = { fov = 20, sensitivity = 0.3 },
 	},
 
-	Pistol = {
+	-- The sidearm everybody starts with: quick, steady, fifteen rounds.
+	P2020 = {
 		kind = "Gun",
-		displayName = "P-22 Sidearm",
+		displayName = "P2020",
+		note = "Quick and steady",
 		class = "Handgun",
-		model = "Pistol",
+		model = "P2020",
 		automatic = false,
-		fireInterval = 0.15,
-		magazine = 12,
-		reserve = 36,
-		reloadTime = 1.6,
+		fireInterval = 0.14,
+		magazine = 15,
+		reserve = 45,
+		reloadTime = 1.5,
 		equipTime = 0.25,
 		range = 400,
-		damage = { Head = 55, UpperTorso = 22, LowerTorso = 22, Limb = 16.5 },
-		spread = { base = 0.6, bloomPerShot = 0.6, maxBloom = 3, recovery = 8 },
+		damage = { Head = 58, UpperTorso = 23, LowerTorso = 23, Limb = 17 },
+		spread = { base = 0.55, bloomPerShot = 0.55, maxBloom = 3, recovery = 8 },
 		recoil = {
 			resetTime = 0.35,
 			recovery = 16,
 			loopFrom = 1,
-			pattern = { { 0.7, 0.05 }, { 0.7, -0.08 }, { 0.75, 0.1 } },
+			pattern = { { 0.65, 0.05 }, { 0.65, -0.08 }, { 0.7, 0.1 } },
 		},
 	},
 
-	Knife = {
+	-- A heavier round: a body shot fewer than the sidearm, and more kick for it.
+	Glock21 = {
+		kind = "Gun",
+		displayName = "Glock 21",
+		note = "Hits harder, kicks more",
+		class = "Handgun",
+		model = "Glock21",
+		automatic = false,
+		fireInterval = 0.17,
+		magazine = 13,
+		reserve = 39,
+		reloadTime = 1.7,
+		equipTime = 0.25,
+		range = 380,
+		damage = { Head = 64, UpperTorso = 26, LowerTorso = 26, Limb = 19 },
+		spread = { base = 0.7, bloomPerShot = 0.75, maxBloom = 3.5, recovery = 7 },
+		recoil = {
+			resetTime = 0.4,
+			recovery = 14,
+			loopFrom = 1,
+			pattern = { { 1.0, 0.08 }, { 1.0, -0.12 }, { 1.05, 0.14 } },
+		},
+	},
+
+	-- Six shots, each one exact if you take your time; slow to fire, slower to reload.
+	Revolver = {
+		kind = "Gun",
+		displayName = "Revolver",
+		note = "Six shots, dead accurate, slow to reload",
+		class = "Handgun",
+		model = "Revolver",
+		automatic = false,
+		fireInterval = 0.42,
+		magazine = 6,
+		reserve = 18,
+		reloadTime = 2.6,
+		equipTime = 0.3,
+		range = 500,
+		damage = { Head = 100, UpperTorso = 40, LowerTorso = 40, Limb = 30 },
+		spread = { base = 0.25, bloomPerShot = 1.6, maxBloom = 4, recovery = 5 },
+		recoil = {
+			resetTime = 0.5,
+			recovery = 12,
+			loopFrom = 1,
+			pattern = { { 2.2, 0.1 }, { 2.2, -0.15 } },
+		},
+	},
+
+	-- The hand cannon: two to the body, one to an unhelmeted head, seven rounds.
+	Deagle = {
+		kind = "Gun",
+		displayName = "Desert Eagle",
+		note = "Slow and brutal: two to the body",
+		class = "Handgun",
+		model = "Deagle",
+		automatic = false,
+		fireInterval = 0.36,
+		magazine = 7,
+		reserve = 21,
+		reloadTime = 2.1,
+		equipTime = 0.32,
+		range = 500,
+		damage = { Head = 110, UpperTorso = 50, LowerTorso = 50, Limb = 36 },
+		spread = { base = 0.5, bloomPerShot = 1.9, maxBloom = 5, recovery = 5 },
+		recoil = {
+			resetTime = 0.5,
+			recovery = 11,
+			loopFrom = 1,
+			pattern = { { 2.8, 0.2 }, { 2.8, -0.3 }, { 3.0, 0.25 } },
+		},
+	},
+
+	-- The knife everybody starts with, and the hardest hitter from the front.
+	CombatKnife = {
 		kind = "Melee",
-		displayName = "Field Knife",
+		displayName = "Military Knife",
+		note = "A heavy blade: the hardest hit from the front",
 		class = "Melee",
-		model = "Knife",
+		model = "CombatKnife",
+		equipTime = 0.22,
+		reach = 7,
+		swingInterval = 0.58,
+		frontDamage = 65,
+		backDamage = 100,
+		backCos = 0.5, -- cos(60 degrees): a 120 degree cone centred on the target's back
+	},
+
+	-- Longest reach of the knives.
+	Bayonet = {
+		kind = "Melee",
+		displayName = "Bayonet",
+		note = "The longest reach",
+		class = "Melee",
+		model = "Bayonet",
+		equipTime = 0.22,
+		reach = 8.2,
+		swingInterval = 0.55,
+		frontDamage = 55,
+		backDamage = 100,
+		backCos = 0.5,
+	},
+
+	-- A backstab counts from further round to the side.
+	Keris = {
+		kind = "Melee",
+		displayName = "Keris",
+		note = "Backstabs land from further round the side",
+		class = "Melee",
+		model = "Keris",
 		equipTime = 0.2,
 		reach = 7,
 		swingInterval = 0.5,
-		frontDamage = 55,
+		frontDamage = 50,
 		backDamage = 100,
-		backCos = 0.5, -- cos(60 degrees): a 120 degree cone centred on the target's back
+		backCos = 0.17, -- cos(80 degrees): a 160 degree cone centred on the target's back
+	},
+
+	-- Fast and close.
+	Karambit = {
+		kind = "Melee",
+		displayName = "Karambit",
+		note = "The fastest slash, the shortest reach",
+		class = "Melee",
+		model = "Karambit",
+		equipTime = 0.16,
+		reach = 6.2,
+		swingInterval = 0.38,
+		frontDamage = 45,
+		backDamage = 100,
+		backCos = 0.5,
 	},
 
 	-- The bomb, in slot 5 while a player carries it in Search and Destroy.

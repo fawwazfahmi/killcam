@@ -27,6 +27,9 @@ local Economy = require(Shared.Logic.Economy)
 local Rank = require(Shared.Logic.Rank)
 local Remotes = require(Shared.Remotes)
 
+local Fit = require(script.Parent.Fit)
+local Focus = require(script.Parent.Focus)
+
 local LoadoutMenu = {}
 
 local TOGGLE_KEY = Enum.KeyCode.B
@@ -58,7 +61,7 @@ local SWAP_PRODUCT = ShopConfig.matchSwap.armourProductId
 local LOBBY_ONLY = "Armour and tactical items are changed in the lobby"
 
 local player = Players.LocalPlayer
-local gui, panel, stack, stackLayout, noteLabel, profileLabel
+local gui, panel, stack, stackLayout, noteLabel, profileLabel, screenScale
 
 local rows = {} -- { field, frame, second = Loadout.SECOND entry or nil, buttons = { [key] = { button, option } } }
 
@@ -201,7 +204,8 @@ end
 -- past that the rows scroll.
 local function fit()
 	local camera = workspace.CurrentCamera
-	local room = if camera then camera.ViewportSize.Y - SCREEN_MARGIN else math.huge
+	-- On a small screen everything here is drawn smaller (see Fit), so there is more room than it looks.
+	local room = if camera then camera.ViewportSize.Y / screenScale.Scale - SCREEN_MARGIN else math.huge
 	local wanted = HEADER + stackLayout.AbsoluteContentSize.Y + FOOTER
 	panel.Size = UDim2.fromOffset(WIDTH, math.min(wanted, math.max(room, HEADER + ROW_HEIGHT + FOOTER)))
 end
@@ -300,6 +304,13 @@ local function build()
 		Enabled = false,
 	}, player:WaitForChild("PlayerGui"))
 
+	screenScale = Fit.attach(gui)
+	screenScale:GetPropertyChangedSignal("Scale"):Connect(function()
+		if stackLayout then
+			fit()
+		end
+	end)
+
 	-- A modal button behind everything frees the mouse while the menu is open,
 	-- and swallows clicks so they do not fire the weapon.
 	make("TextButton", {
@@ -310,6 +321,7 @@ local function build()
 		AutoButtonColor = false,
 		Text = "",
 		Modal = true,
+		Selectable = false,
 	}, gui)
 
 	panel = make("Frame", {
@@ -442,10 +454,23 @@ end
 
 -- Opens or closes the menu. Also bound to B.
 function LoadoutMenu.setOpen(open)
+	if gui.Enabled == open then
+		return
+	end
 	gui.Enabled = open
 	if open then
 		refresh() -- time left has moved on since it was last open
+		Focus.on(panel, function()
+			LoadoutMenu.setOpen(false)
+		end)
+	else
+		Focus.off(panel)
 	end
+end
+
+-- For whatever opens the menu where there is no B key to press.
+function LoadoutMenu.toggle()
+	LoadoutMenu.setOpen(not gui.Enabled)
 end
 
 -- `options.inMatch` is set in a match, where nothing can be bought and only

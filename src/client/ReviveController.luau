@@ -1,18 +1,21 @@
 -- The revive offer a player sees when they die (see ReviveService): what it
--- costs, what it does in this mode, and how long is left to take it. F takes it.
+-- costs, what it does in this mode, and how long is left to take it. The Use
+-- action takes it: F, a controller's Y, or the USE button on a touch screen.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Theme = require(Shared.Config.Theme)
 local Remotes = require(Shared.Remotes)
 
+local Fit = require(script.Parent.Fit)
+
 local ReviveController = {}
 
-local REVIVE_KEY = Enum.KeyCode.F
+local controls
+
 
 local DISPLAY = Enum.Font[Theme.display]
 local FONT = Enum.Font[Theme.body]
@@ -92,7 +95,7 @@ local function build()
 		BackgroundColor3 = ACCENT,
 		BorderSizePixel = 0,
 		Font = DISPLAY,
-		Text = REVIVE_KEY.Name,
+		Text = "",
 		TextSize = SIZE.heading,
 		TextColor3 = INK,
 	}, body)
@@ -144,17 +147,22 @@ local function show(update)
 		costLabel.Text = "COSTS ROBUX"
 	end
 	keyLabel.BackgroundTransparency = if update.buying then 0.6 else 0
+	keyLabel.Text = controls.hint("Use")
+	keyLabel.TextSize = if #keyLabel.Text > 2 then SIZE.small else SIZE.heading
 	effectLabel.Text = if update.undo
 		then "Back where you fell. Your death is wiped and their point is taken back."
 		else "Back into this round. Your death still counts."
 end
 
-function ReviveController.start()
+-- `controlsModule` is Controls.
+function ReviveController.start(controlsModule)
+	controls = controlsModule
 	build()
+	Fit.attach(gui)
 	Remotes.ReviveOffer.OnClientEvent:Connect(show)
 
-	UserInputService.InputBegan:Connect(function(input, processed)
-		if input.KeyCode == REVIVE_KEY and not processed and offer and not offer.buying then
+	controls.on("Use", function(down)
+		if down and offer and not offer.buying then
 			Remotes.ReviveRequest:FireServer()
 		end
 	end)

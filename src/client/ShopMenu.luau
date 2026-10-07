@@ -20,6 +20,9 @@ local Economy = require(Shared.Logic.Economy)
 local Rank = require(Shared.Logic.Rank)
 local Remotes = require(Shared.Remotes)
 
+local Fit = require(script.Parent.Fit)
+local Focus = require(script.Parent.Focus)
+
 local ShopMenu = {}
 
 local DISPLAY = Enum.Font[Theme.display]
@@ -218,6 +221,8 @@ local function build()
 		Enabled = false,
 	}, player:WaitForChild("PlayerGui"))
 
+	Fit.attach(gui)
+
 	-- Frees the mouse and swallows clicks while the shop is open.
 	make("TextButton", {
 		Size = UDim2.fromScale(1, 1),
@@ -227,6 +232,7 @@ local function build()
 		AutoButtonColor = false,
 		Text = "",
 		Modal = true,
+		Selectable = false,
 	}, gui)
 
 	body = make("Frame", {
@@ -302,7 +308,16 @@ end
 
 -- `field`, if given, is the loadout field whose category to open at.
 function ShopMenu.setOpen(open, field)
-	gui.Enabled = open
+	if gui.Enabled ~= open then
+		gui.Enabled = open
+		if open then
+			Focus.on(body, function()
+				ShopMenu.setOpen(false)
+			end)
+		else
+			Focus.off(body)
+		end
+	end
 	local category = field and Catalog.field(CATEGORIES, field)
 	if open and category then
 		showCategory(category)

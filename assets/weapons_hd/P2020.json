@@ -1,0 +1,56 @@
+{
+  "name": "P2020",
+  "studsPerMetre": 5.5,
+  "muzzle": [
+    0.0,
+    0.418,
+    -0.957
+  ],
+  "parts": {
+    "Slide": {
+      "finish": "Bare",
+      "group": "Slide",
+      "triangles": 6348
+    },
+    "Sights": {
+      "finish": "Steel",
+      "group": "Slide",
+      "triangles": 344
+    },
+    "Barrel": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 272
+    },
+    "Frame": {
+      "finish": "Polymer",
+      "group": "Body",
+      "triangles": 1748
+    },
+    "GripPanels": {
+      "finish": "Polymer",
+      "group": "Body",
+      "triangles": 120
+    },
+    "Controls": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 404
+    },
+    "Hammer": {
+      "finish": "Steel",
+      "group": "Hammer",
+      "triangles": 584
+    },
+    "Trigger": {
+      "finish": "Steel",
+      "group": "Trigger",
+      "triangles": 184
+    },
+    "Magazine": {
+      "finish": "Steel",
+      "group": "Magazine",
+      "triangles": 228
+    }
+  }
+}

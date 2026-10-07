@@ -1,0 +1,26 @@
+{
+  "name": "Karambit",
+  "studsPerMetre": 5.5,
+  "muzzle": [
+    0.0,
+    -0.3282,
+    -0.5353
+  ],
+  "parts": {
+    "Blade": {
+      "finish": "Bare",
+      "group": "Body",
+      "triangles": 1572
+    },
+    "Handle": {
+      "finish": "Polymer",
+      "group": "Body",
+      "triangles": 1352
+    },
+    "Fittings": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 1432
+    }
+  }
+}

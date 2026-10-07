@@ -1,0 +1,51 @@
+{
+  "name": "Glock21",
+  "studsPerMetre": 5.5,
+  "muzzle": [
+    0.0,
+    0.429,
+    -1.0395
+  ],
+  "parts": {
+    "Slide": {
+      "finish": "Steel",
+      "group": "Slide",
+      "triangles": 2602
+    },
+    "Sights": {
+      "finish": "Steel",
+      "group": "Slide",
+      "triangles": 344
+    },
+    "Barrel": {
+      "finish": "Bare",
+      "group": "Body",
+      "triangles": 324
+    },
+    "Frame": {
+      "finish": "Polymer",
+      "group": "Body",
+      "triangles": 1200
+    },
+    "GripPanels": {
+      "finish": "Polymer",
+      "group": "Body",
+      "triangles": 120
+    },
+    "Controls": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 324
+    },
+    "Trigger": {
+      "finish": "Polymer",
+      "group": "Trigger",
+      "triangles": 156
+    },
+    "Magazine": {
+      "finish": "Polymer",
+      "group": "Magazine",
+      "triangles": 216
+    }
+  }
+}

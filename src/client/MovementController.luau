@@ -1,5 +1,7 @@
 -- Weighted ground movement. The Humanoid still does the walking; this feeds it
--- a smoothed direction so starts, stops and turns take a moment.
+-- a smoothed direction so starts, stops and turns take a moment. Which way the
+-- player wants to go comes from Controls, so keys, a stick and a touch
+-- thumbstick all move them the same.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -13,6 +15,7 @@ local MoveSmoothing = require(Shared.Logic.MoveSmoothing)
 local MovementController = {}
 
 local player = Players.LocalPlayer
+local controls
 
 local smoothX, smoothZ = 0, 0
 local trackedHumanoid = nil
@@ -35,17 +38,6 @@ function MovementController.getState()
 	return state
 end
 
-local function keyAxis(negative, positive)
-	local value = 0
-	if UserInputService:IsKeyDown(negative) then
-		value -= 1
-	end
-	if UserInputService:IsKeyDown(positive) then
-		value += 1
-	end
-	return value
-end
-
 local function step(dt)
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
@@ -61,11 +53,14 @@ local function step(dt)
 		smoothX, smoothZ = 0, 0
 		airTime, lastAirTime, sinceLanding = 0, 0, math.huge
 		state.crouched = false
+		controls.release("Crouch") -- where crouching is a switch, a new life starts standing
 	end
 
 	local typing = UserInputService:GetFocusedTextBox() ~= nil
-	local strafe = typing and 0 or keyAxis(Enum.KeyCode.A, Enum.KeyCode.D)
-	local forward = typing and 0 or keyAxis(Enum.KeyCode.S, Enum.KeyCode.W)
+	local strafe, forward = 0, 0
+	if not typing then
+		strafe, forward = controls.move()
+	end
 
 	-- Camera-relative input to a flat world direction.
 	local look = workspace.CurrentCamera.CFrame.LookVector
@@ -104,8 +99,7 @@ local function step(dt)
 	humanoid:Move(Vector3.new(smoothX, 0, smoothZ), false)
 	state.moving = (smoothX * smoothX + smoothZ * smoothZ) > 0.04
 
-	local wantsCrouch = not typing
-		and (UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) or UserInputService:IsKeyDown(Enum.KeyCode.C))
+	local wantsCrouch = not typing and controls.isDown("Crouch")
 	if wantsCrouch ~= state.crouched then
 		state.crouched = wantsCrouch
 		humanoid.HipHeight = wantsCrouch and (baseHipHeight - MovementConfig.crouchHipDrop) or baseHipHeight
@@ -115,7 +109,9 @@ local function step(dt)
 	humanoid.WalkSpeed = speed * speedScale * MoveSmoothing.landingFactor(MovementConfig, lastAirTime, sinceLanding)
 end
 
-function MovementController.start()
+-- `controlsModule` is Controls.
+function MovementController.start(controlsModule)
+	controls = controlsModule
 	RunService:BindToRenderStep("TdmMovement", Enum.RenderPriority.Input.Value + 1, step)
 end
 

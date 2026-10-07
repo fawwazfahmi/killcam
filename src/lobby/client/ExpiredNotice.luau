@@ -16,6 +16,8 @@ local WeaponConfig = require(Shared.Config.WeaponConfig)
 local Catalog = require(Shared.Logic.Catalog)
 local Remotes = require(Shared.Remotes)
 
+local Fit = require(script.Parent.Fit)
+local Focus = require(script.Parent.Focus)
 local ShopMenu = require(script.Parent.ShopMenu)
 
 local ExpiredNotice = {}
@@ -80,8 +82,11 @@ local function lapsed(expired)
 end
 
 local function close()
-	gui.Enabled = false
-	Remotes.AckExpired:FireServer()
+	if gui.Enabled then
+		gui.Enabled = false
+		Focus.off(body)
+		Remotes.AckExpired:FireServer()
+	end
 end
 
 local function show(items)
@@ -123,7 +128,10 @@ local function show(items)
 	okButton.Position = UDim2.fromOffset(24 + 250 + 12, 118 + listHeight + 16)
 
 	firstField = items[1].entry.field
-	gui.Enabled = true
+	if not gui.Enabled then
+		gui.Enabled = true
+		Focus.on(body, close)
+	end
 end
 
 local function build()
@@ -135,6 +143,8 @@ local function build()
 		Enabled = false,
 	}, player:WaitForChild("PlayerGui"))
 
+	Fit.attach(gui)
+
 	-- Frees the mouse, and keeps clicks off whatever is behind.
 	make("TextButton", {
 		Size = UDim2.fromScale(1, 1),
@@ -144,6 +154,7 @@ local function build()
 		AutoButtonColor = false,
 		Text = "",
 		Modal = true,
+		Selectable = false,
 	}, gui)
 
 	body = make("Frame", {
@@ -224,6 +235,7 @@ function ExpiredNotice.start()
 			show(items)
 		elseif gui.Enabled then
 			gui.Enabled = false -- acknowledged from somewhere else
+			Focus.off(body)
 		end
 	end)
 end

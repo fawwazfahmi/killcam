@@ -1,0 +1,31 @@
+{
+  "name": "CombatKnife",
+  "studsPerMetre": 5.5,
+  "muzzle": [
+    0.0,
+    -0.0165,
+    -1.298
+  ],
+  "parts": {
+    "Blade": {
+      "finish": "Bare",
+      "group": "Body",
+      "triangles": 488
+    },
+    "Guard": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 188
+    },
+    "Handle": {
+      "finish": "Wood",
+      "group": "Body",
+      "triangles": 1456
+    },
+    "Pommel": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 716
+    }
+  }
+}

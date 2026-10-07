@@ -1,0 +1,31 @@
+{
+  "name": "Keris",
+  "studsPerMetre": 5.5,
+  "muzzle": [
+    0.0,
+    0.0825,
+    -2.09
+  ],
+  "parts": {
+    "Blade": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 3788
+    },
+    "Ganja": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 160
+    },
+    "Collar": {
+      "finish": "Bare",
+      "group": "Body",
+      "triangles": 336
+    },
+    "Hilt": {
+      "finish": "Wood",
+      "group": "Body",
+      "triangles": 2084
+    }
+  }
+}

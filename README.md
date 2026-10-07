@@ -89,6 +89,47 @@ teleports between the two places. Those need both places published.
 Walk over a gun on the ground to pick it up, if you have a free slot for it.
 To plant, press 5 and hold fire on a site.
 
+### Controller and touch
+
+Everything above is an action in `src/shared/Config/ControlsConfig.luau`, with
+a key, a controller button and a touch button, so nothing is possible on one
+kind of device and missing on another. Moving, looking and jumping are
+Roblox's own on all three.
+
+| Action | Controller | Touch button |
+|---|---|---|
+| Fire | R2 | FIRE (hold, and drag to aim while holding) |
+| Scope | L2 (hold) | AIM (tap on, tap off) |
+| Reload | X | RELOAD |
+| Tactical item | L1 | TAC |
+| Next weapon | R1 | SWAP |
+| Primary, handgun, knife, grenade | D-pad up, left, down, right | SWAP steps through them |
+| Back to the last weapon | R3 | |
+| Crouch | B (press on, press off) | CROUCH (tap on, tap off) |
+| Defuse; when dead, revive | Y (hold) | USE |
+| Drop | L3 | DROP |
+| Loadout | View | KIT |
+
+The touch buttons only appear while a touch screen is what is being used, and
+are drawn larger on a tablet. In a menu, a controller moves between the
+buttons and B closes it; the menus are drawn smaller on a small screen. The
+head-up display itself (ammo, score, crosshair) is not yet resized for phones.
+
+## Sound
+
+Every sound in the game is listed in `src/shared/Config/SoundConfig.luau`:
+gunshots by weapon class, the knife, reloading, drawing a weapon, hits,
+headshots, kills, being hurt, explosions and the flashbang. Your own play
+straight away; other players' shots and explosions come from where they
+happened and fade with distance, a sniper carrying furthest.
+
+**They are stand-ins.** Uploading audio cannot be done from here, so each one
+is made from the handful of sounds that ship with Roblox, played faster or
+slower: a gunshot is its explosion at three times the speed. To use real
+audio, upload it and put its `rbxassetid://` in place of the `id`; an empty
+`id` is silent. Volume, speed and how far a sound carries are per sound.
+Footsteps and the sound of dying are Roblox's own.
+
 ## Tests
 
 ```
@@ -148,6 +189,14 @@ pip install bpy numpy pillow
 python tools/models/hd/build.py            every weapon
 python tools/models/hd/build.py AK47       one weapon
 ```
+
+`bpy` is only published for the Python version Blender itself ships with
+(3.11 for bpy 5.0), so run both lines with that Python: on Windows,
+`py -3.11 -m pip install ...` and `py -3.11 tools/models/hd/build.py`.
+
+There are twenty-one: six rifles, three SMGs, four sniper rifles, four
+handguns and four knives. The knives go through the same pipeline, laid out with the
+handle where a gun's grip would be and the tip as the "muzzle".
 
 This writes `assets/weapons_hd/<Name>.glb`, a studio render `<Name>.png` and
 `<Name>.json`, which lists the parts, their finish and the animation group each
@@ -427,6 +476,16 @@ saved in a data store named `Profiles_v1`, which only works in a published
 place with API access switched on. Elsewhere, including an ordinary Studio
 test, profiles last for the session and nothing is saved.
 
+**A profile is open on one server at a time.** A player going from the lobby
+to a match is still being saved by one as the other starts to load, which is
+how points and purchases get lost. So loading a profile marks it as open on
+that server; another server that finds it open waits for the last save, which
+closes it; and a save that finds the profile has been opened elsewhere since
+does not write over it. A server that crashes leaves its profiles open: after
+two and a half minutes without a save they are taken as abandoned. Everybody
+is also saved once a minute, so a crash costs a minute at most. The rules are
+`src/shared/Logic/Session.luau`.
+
 A map that is not mirrored gives `spawns` as one list per team, and may list
 `sites` (name, centre and size on the ground), which become
 `Workspace.Map.Sites`.
@@ -456,10 +515,11 @@ area, cover density, longest clear line, passage widths) and checks that no
 spawn is blocked and that the two spawns connect at ground level.
 ## Replacing placeholders
 
-- **Weapon models from elsewhere:** put a Model named `Rifle`, `Sniper`,
-  `Pistol`, `Knife` or `Grenade` in `ReplicatedStorage.Assets.Weapons`. Its
-  PrimaryPart sits at the grip with the barrel along -Z, and may hold an
-  Attachment named `Muzzle`.
+- **Weapon models from elsewhere:** put a Model named after the weapon's
+  `model` in `WeaponConfig` (`AK47`, `P2020`, `CombatKnife`, ...) in
+  `ReplicatedStorage.Assets.Weapons`. Its PrimaryPart sits at the grip with
+  the barrel along -Z, and may hold an Attachment named `Muzzle`. Until one
+  is there, the weapon is drawn as the plain block shape for its kind.
 - **Map:** build a `Workspace.Map` folder with `Geometry`, `Spawns/Alpha`,
   `Spawns/Bravo` and `Bounds`. When it exists, the blockout is not generated.
 

@@ -5,19 +5,36 @@
 -- Profiles are kept in a data store. Where that is not available (Studio
 -- without API access, or an unpublished place) they last for the session only
 -- and nothing is saved.
+--
+-- A player moves between servers (lobby to match and back), and the one they
+-- leave is still saving as the one they join starts loading. So a profile is
+-- only ever open on one server at a time (rules in Shared.Logic.Session):
+-- loading it marks it as open here, a server that finds it open elsewhere
+-- waits for it to be closed, and a save that finds the profile has since been
+-- opened somewhere else does not write. Nothing is lost between the two.
 
 local DataStoreService = game:GetService("DataStoreService")
+local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local ShopConfig = require(Shared.Config.ShopConfig)
 local Economy = require(Shared.Logic.Economy)
+local Session = require(Shared.Logic.Session)
 local Remotes = require(Shared.Remotes)
 
 local ProfileStore = {}
 
 local STORE_NAME = "Profiles_v1"
+-- What this server calls itself when it opens a profile. A Studio test has no
+-- job id, so it makes one up.
+local SERVER = if game.JobId ~= "" then game.JobId else "studio-" .. HttpService:GenerateGUID(false)
+local RETRY_EVERY = 3 -- seconds between tries at a profile that is open on another server
+local SAVE_EVERY = 60 -- seconds between saves of everybody here, which also keeps their profiles marked as open
+-- A profile left open by a server that has not saved it for this long is
+-- taken to be abandoned (the server crashed), and can be opened elsewhere.
+local STALE_AFTER = SAVE_EVERY * 2 + 30
 
 local store = nil
 local profiles = {} -- [player] = profile
@@ -79,18 +96,32 @@ function ProfileStore.push(player, earned)
 end
 
 -- Yields. Safe to call from task.spawn. Returns whether the profile is now
--- safely stored; false as well when there is nowhere to store it.
-function ProfileStore.save(player)
+-- safely stored; false as well when there is nowhere to store it. `closing`
+-- is for the last save as a player leaves: it marks the profile as no longer
+-- open here, so the server they are going to can open it at once.
+function ProfileStore.save(player, closing)
 	local profile = profiles[player]
 	if not store or not profile or not canSave[player] then
 		return false
 	end
 	Economy.prune(profile, os.time())
-	local ok, problem = pcall(store.SetAsync, store, keyFor(player), profile)
+	local written = false
+	local ok, problem = pcall(store.UpdateAsync, store, keyFor(player), function(saved)
+		written = Session.mayWrite(saved, SERVER)
+		if not written then
+			return nil -- it has been opened on another server since: theirs is the newer one
+		end
+		local record = table.clone(profile)
+		record.session = if closing then nil else Session.stamp(SERVER, os.time())
+		return record
+	end)
 	if not ok then
 		warn(`ProfileStore: could not save {player.Name}: {problem}`)
+	elseif not written then
+		warn(`ProfileStore: {player.Name}'s profile is open on another server; this one will not save it again`)
+		canSave[player] = nil
 	end
-	return ok
+	return ok and written
 end
 
 -- True if profiles are kept between sessions here.
@@ -98,10 +129,48 @@ function ProfileStore.persists()
 	return store ~= nil
 end
 
+-- Opens a player's saved profile on this server. Returns whether it worked,
+-- and what was saved (nil for a new player). If the profile is open on another
+-- server, which is usual for a moment after a teleport, this waits for that
+-- server to finish with it. Yields.
+local function open(player)
+	while player.Parent == Players do
+		local elsewhere = false
+		local ok, saved = pcall(store.UpdateAsync, store, keyFor(player), function(found)
+			elsewhere = Session.heldElsewhere(found, SERVER, os.time(), STALE_AFTER)
+			if elsewhere then
+				return nil -- leave it exactly as it is
+			end
+			local record = if type(found) == "table" then found else {}
+			record.session = Session.stamp(SERVER, os.time())
+			return record
+		end)
+		if not ok then
+			return false, saved
+		elseif not elsewhere then
+			return true, saved
+		end
+		task.wait(RETRY_EVERY)
+	end
+	return false, "they left before it could be opened"
+end
+
+-- Marks a profile as no longer open here without otherwise touching it: for a
+-- player who left while it was still being opened.
+local function close(player)
+	pcall(store.UpdateAsync, store, keyFor(player), function(saved)
+		if type(saved) ~= "table" or not Session.mayWrite(saved, SERVER) then
+			return nil
+		end
+		saved.session = nil
+		return saved
+	end)
+end
+
 local function load(player)
 	local profile = Economy.newProfile()
 	if store then
-		local ok, saved = pcall(store.GetAsync, store, keyFor(player))
+		local ok, saved = open(player)
 		if not ok then
 			-- Never save over a profile that could not be read.
 			warn(`ProfileStore: could not load {player.Name}; this session will not be saved: {saved}`)
@@ -122,6 +191,10 @@ local function load(player)
 		end
 	end
 	if player.Parent ~= Players then
+		if canSave[player] then
+			canSave[player] = nil
+			close(player) -- or the next server would wait for one that is not coming
+		end
 		return -- they left while it was loading
 	end
 	Economy.prune(profile, os.time())
@@ -181,16 +254,30 @@ function ProfileStore.init()
 		task.spawn(load, player)
 	end
 	Players.PlayerRemoving:Connect(function(player)
-		ProfileStore.save(player)
+		ProfileStore.save(player, true)
 		profiles[player] = nil
 		canSave[player] = nil
 		held[player] = nil
 	end)
 	game:BindToClose(function()
 		for _, player in Players:GetPlayers() do
-			ProfileStore.save(player)
+			task.spawn(ProfileStore.save, player, true)
 		end
+		task.wait(2) -- give those saves a moment before the server goes
 	end)
+
+	-- Saving everybody now and then loses less if the server dies, and is what
+	-- keeps their profiles from looking abandoned to other servers.
+	if store then
+		task.spawn(function()
+			while true do
+				task.wait(SAVE_EVERY)
+				for player in profiles do
+					task.spawn(ProfileStore.save, player)
+				end
+			end
+		end)
+	end
 end
 
 return ProfileStore

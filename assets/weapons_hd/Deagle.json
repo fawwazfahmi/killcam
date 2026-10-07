@@ -1,0 +1,61 @@
+{
+  "name": "Deagle",
+  "studsPerMetre": 5.5,
+  "muzzle": [
+    0.0,
+    0.462,
+    -1.32
+  ],
+  "parts": {
+    "Barrel": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 382
+    },
+    "Rail": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 592
+    },
+    "Slide": {
+      "finish": "Steel",
+      "group": "Slide",
+      "triangles": 1322
+    },
+    "Sights": {
+      "finish": "Steel",
+      "group": "Slide",
+      "triangles": 344
+    },
+    "Frame": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 748
+    },
+    "Grip": {
+      "finish": "Polymer",
+      "group": "Body",
+      "triangles": 220
+    },
+    "Controls": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 420
+    },
+    "Hammer": {
+      "finish": "Steel",
+      "group": "Hammer",
+      "triangles": 200
+    },
+    "Trigger": {
+      "finish": "Bare",
+      "group": "Trigger",
+      "triangles": 156
+    },
+    "Magazine": {
+      "finish": "Bare",
+      "group": "Magazine",
+      "triangles": 216
+    }
+  }
+}

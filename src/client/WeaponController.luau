@@ -28,18 +28,9 @@ local WeaponController = {}
 local player = Players.LocalPlayer
 local deps
 
--- The number keys. Each reaches one or two slots (see Loadout.KEYS): pressing
--- 1 again goes to a second primary, and 4 again to a second grenade.
-local NUMBER_KEYS = {
-	[Enum.KeyCode.One] = 1,
-	[Enum.KeyCode.Two] = 2,
-	[Enum.KeyCode.Three] = 3,
-	[Enum.KeyCode.Four] = 4,
-	[Enum.KeyCode.Five] = 5,
-}
-local QUICK_KEY = Enum.KeyCode.Q -- back to the weapon held before this one
-local TACTICAL_KEY = Enum.KeyCode.E
-local DROP_KEY = Enum.KeyCode.G
+-- What the player presses is in ControlsConfig, and reaches here as actions
+-- (see Controls): the same ones from a keyboard, a controller or a touch screen.
+local NUMBER_KEYS = 5 -- Slot1 to Slot5. Each reaches one or two slots (see Loadout.KEYS).
 
 -- { slots, equipped, ammo, loadout, choice, tacticalUses } as last sent by the server
 local loadout = nil
@@ -93,7 +84,9 @@ local function refreshHud()
 	deps.hud.setWeapon(config.displayName, text)
 
 	local item = TacticalConfig.items[loadout.loadout.tactical]
-	deps.hud.setTactical(string.format("[%s] %s  x%d", TACTICAL_KEY.Name, item.displayName, loadout.tacticalUses))
+	local hint = deps.controls.hint("Tactical")
+	local prefix = if hint ~= "" then "[" .. hint .. "] " else ""
+	deps.hud.setTactical(string.format("%s%s  x%d", prefix, item.displayName, loadout.tacticalUses))
 end
 
 local function setScoped(value)
@@ -131,6 +124,7 @@ local function equip(slot, tellServer)
 	end
 
 	deps.viewmodel.equip(config.model, equipTime)
+	deps.sounds.play("Equip")
 	deps.movement.setSpeedScale(Loadout.speedScale(stats, config.class))
 	deps.objective.setPlanting(false)
 	if tellServer then
@@ -164,6 +158,7 @@ local function tryReload()
 	end
 	setScoped(false)
 	reloadEndsAt = os.clock() + config.reloadTime
+	deps.sounds.play("Reload")
 	Remotes.Reload:FireServer()
 	refreshHud()
 end
@@ -257,6 +252,7 @@ local function fireGun(name, config, now)
 
 	Remotes.FireShot:FireServer(origin, endPosition, hitPart)
 
+	deps.sounds.shot(config)
 	Effects.tracer(deps.viewmodel.muzzlePosition(), endPosition)
 	if result and not hitPart then
 		Effects.impact(result.Position)
@@ -275,6 +271,7 @@ end
 
 local function swingKnife(config, now)
 	lastSwing = now
+	deps.sounds.play("Swing")
 	local cameraCFrame = workspace.CurrentCamera.CFrame
 	local result = cast(cameraCFrame.Position, cameraCFrame.LookVector, config.reach)
 	Remotes.MeleeSwing:FireServer(characterPart(result))
@@ -365,6 +362,8 @@ local function onLoadout(payload)
 		nextShotAt, lastShotAt = {}, {}
 		lastShotAny, lastSwing = -math.huge, -math.huge
 		scopeHeld, triggerHeld, triggerPressed = false, false, false
+		deps.controls.release("Fire")
+		deps.controls.release("Scope") -- on a touch screen aiming is a switch, and a new life starts with it off
 		equip(payload.equipped, false)
 	else
 		-- Mid-life update (reload finished, ammo corrected, something picked up,
@@ -377,38 +376,43 @@ local function onLoadout(payload)
 	end
 end
 
-local function onInputBegan(input, processed)
-	if processed then
-		return
+-- Connects each action to what it does. An action only does anything while
+-- the player is alive and has a loadout.
+local function bindActions()
+	local controls = deps.controls
+	local function whenAlive(action, run)
+		controls.on(action, function(down)
+			if down and loadout and isAlive() then
+				run()
+			end
+		end)
 	end
-	if input.UserInputType == Enum.UserInputType.MouseButton1 then
-		triggerHeld = true
-		triggerPressed = true
-	elseif input.UserInputType == Enum.UserInputType.MouseButton2 then
-		scopeHeld = true
-	elseif loadout and isAlive() then
-		if input.KeyCode == Enum.KeyCode.R then
-			tryReload()
-		elseif input.KeyCode == TACTICAL_KEY then
-			useTactical()
-		elseif input.KeyCode == QUICK_KEY then
-			quickSwitch()
-		elseif input.KeyCode == DROP_KEY then
-			Remotes.DropWeapon:FireServer() -- the server answers with what we have left
-		elseif NUMBER_KEYS[input.KeyCode] then
-			local slot = Loadout.slotForKey(loadout.slots, loadout.equipped, NUMBER_KEYS[input.KeyCode])
+
+	controls.on("Fire", function(down)
+		triggerHeld = down
+		if down then
+			triggerPressed = true
+		end
+	end)
+	controls.on("Scope", function(down)
+		scopeHeld = down
+	end)
+	whenAlive("Reload", tryReload)
+	whenAlive("Tactical", useTactical)
+	whenAlive("QuickSwitch", quickSwitch)
+	whenAlive("NextWeapon", function()
+		cycleSlot(1)
+	end)
+	whenAlive("Drop", function()
+		Remotes.DropWeapon:FireServer() -- the server answers with what we have left
+	end)
+	for key = 1, NUMBER_KEYS do
+		whenAlive("Slot" .. key, function()
+			local slot = Loadout.slotForKey(loadout.slots, loadout.equipped, key)
 			if slot then
 				equip(slot, true)
 			end
-		end
-	end
-end
-
-local function onInputEnded(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 then
-		triggerHeld = false
-	elseif input.UserInputType == Enum.UserInputType.MouseButton2 then
-		scopeHeld = false
+		end)
 	end
 end
 
@@ -462,9 +466,8 @@ function WeaponController.start(dependencies)
 	Remotes.Damaged.OnClientEvent:Connect(onDamaged)
 	Remotes.Explosion.OnClientEvent:Connect(onExplosion)
 
-	UserInputService.InputBegan:Connect(onInputBegan)
-	UserInputService.InputEnded:Connect(onInputEnded)
-	UserInputService.InputChanged:Connect(onInputChanged)
+	bindActions()
+	UserInputService.InputChanged:Connect(onInputChanged) -- the mouse wheel
 
 	RunService:BindToRenderStep("TdmWeapons", Enum.RenderPriority.Camera.Value + 2, update)
 end

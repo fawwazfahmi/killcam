@@ -54,6 +54,39 @@ check("nothing in the type scale is too small to read", function()
 	end
 end)
 
+-- 1b. Every key and button the controls name is a real one.
+check("every control names a real key, button or mouse button", function()
+	local ControlsConfig = require(Shared.Config.ControlsConfig)
+	for name, action in ControlsConfig.actions do
+		for _, key in action.keys do
+			expect(Enum.KeyCode[key] ~= nil, `{name}: no key called {key}`)
+		end
+		for _, button in action.pad do
+			expect(Enum.KeyCode[button] ~= nil, `{name}: no controller button called {button}`)
+		end
+		if action.mouse then
+			expect(Enum.UserInputType[action.mouse] ~= nil, `{name}: no mouse button called {action.mouse}`)
+		end
+	end
+end)
+
+-- 1c. Every sound that is not left silent loads as a Sound.
+check("every sound has an id Roblox accepts", function()
+	local SoundConfig = require(Shared.Config.SoundConfig)
+	for name, entry in SoundConfig.sounds do
+		if entry.id ~= "" then
+			local sound = Instance.new("Sound")
+			local ok, problem = pcall(function()
+				sound.SoundId = entry.id
+				sound.Volume = entry.volume
+				sound.PlaybackSpeed = entry.speed
+			end)
+			sound:Destroy()
+			expect(ok, `{name}: {problem}`)
+		end
+	end
+end)
+
 -- 2. Every module loads. This runs each one's top-level code, which is where
 --    a bad service name or a missing sibling would bite on the first run.
 local function loadAll(root, label)

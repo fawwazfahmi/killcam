@@ -30,6 +30,12 @@
           },
           "ShopMenu": {
             "$path": "src/client/ShopMenu.luau"
+          },
+          "Fit": {
+            "$path": "src/client/Fit.luau"
+          },
+          "Focus": {
+            "$path": "src/client/Focus.luau"
           }
         }
       }

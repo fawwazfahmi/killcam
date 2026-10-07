@@ -1,0 +1,51 @@
+{
+  "name": "Revolver",
+  "studsPerMetre": 5.5,
+  "muzzle": [
+    0.0,
+    0.44,
+    -1.089
+  ],
+  "parts": {
+    "Frame": {
+      "finish": "Bare",
+      "group": "Body",
+      "triangles": 1006
+    },
+    "Barrel": {
+      "finish": "Bare",
+      "group": "Body",
+      "triangles": 922
+    },
+    "Sights": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 340
+    },
+    "Cylinder": {
+      "finish": "Bare",
+      "group": "Cylinder",
+      "triangles": 1064
+    },
+    "Hammer": {
+      "finish": "Bare",
+      "group": "Hammer",
+      "triangles": 184
+    },
+    "Trigger": {
+      "finish": "Bare",
+      "group": "Trigger",
+      "triangles": 172
+    },
+    "Latch": {
+      "finish": "Bare",
+      "group": "Latch",
+      "triangles": 108
+    },
+    "Grip": {
+      "finish": "Wood",
+      "group": "Body",
+      "triangles": 284
+    }
+  }
+}

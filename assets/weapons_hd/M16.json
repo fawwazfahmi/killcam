@@ -1,0 +1,86 @@
+{
+  "name": "M16",
+  "studsPerMetre": 5.5,
+  "muzzle": [
+    0.0,
+    0.55,
+    -4.048
+  ],
+  "parts": {
+    "UpperReceiver": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 580
+    },
+    "CarryHandle": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 2008
+    },
+    "LowerReceiver": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 948
+    },
+    "Barrel": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 988
+    },
+    "Handguard": {
+      "finish": "Polymer",
+      "group": "Body",
+      "triangles": 4224
+    },
+    "FrontSight": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 804
+    },
+    "Stock": {
+      "finish": "Polymer",
+      "group": "Body",
+      "triangles": 456
+    },
+    "ButtPlate": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 216
+    },
+    "Grip": {
+      "finish": "Polymer",
+      "group": "Body",
+      "triangles": 456
+    },
+    "TriggerGuard": {
+      "finish": "Steel",
+      "group": "Body",
+      "triangles": 304
+    },
+    "Trigger": {
+      "finish": "Steel",
+      "group": "Trigger",
+      "triangles": 148
+    },
+    "Selector": {
+      "finish": "Steel",
+      "group": "Selector",
+      "triangles": 524
+    },
+    "Magazine": {
+      "finish": "Steel",
+      "group": "Magazine",
+      "triangles": 1860
+    },
+    "ChargingHandle": {
+      "finish": "Steel",
+      "group": "ChargingHandle",
+      "triangles": 296
+    },
+    "Bolt": {
+      "finish": "Bare",
+      "group": "Bolt",
+      "triangles": 108
+    }
+  }
+}

@@ -21,6 +21,9 @@ local Queue = require(Shared.Logic.Queue)
 local Rank = require(Shared.Logic.Rank)
 local Remotes = require(Shared.Remotes)
 
+local Fit = require(script.Parent.Fit)
+local Focus = require(script.Parent.Focus)
+
 local Panels = {}
 
 local DISPLAY = Enum.Font[Theme.display]
@@ -89,6 +92,21 @@ local function button(properties, parent, onClick)
 	return instance
 end
 
+-- Shows or hides a panel. Shown, a controller steers it and its B closes it.
+local function setShown(root, shown)
+	if root.Visible == shown then
+		return
+	end
+	root.Visible = shown
+	if shown then
+		Focus.on(root.Body, function()
+			setShown(root, false)
+		end)
+	else
+		Focus.off(root.Body)
+	end
+end
+
 -- A centred panel over a modal backdrop, which frees the mouse while it is open.
 local function panel(width, height, title)
 	local root = make("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Visible = false }, gui)
@@ -100,8 +118,10 @@ local function panel(width, height, title)
 		AutoButtonColor = false,
 		Text = "",
 		Modal = true,
+		Selectable = false,
 	}, root)
 	local body = make("Frame", {
+		Name = "Body",
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.5),
 		Size = UDim2.fromOffset(width, height),
@@ -122,7 +142,7 @@ local function panel(width, height, title)
 		Size = UDim2.fromOffset(100, 28),
 		Text = "CLOSE",
 	}, body, function()
-		root.Visible = false
+		setShown(root, false)
 	end)
 	return root, body
 end
@@ -349,7 +369,7 @@ local function refreshSquad()
 	-- An invitation waits on top of everything until it is answered.
 	local invite = squad.invites[1]
 	invitedBy = invite and invite.name
-	invitePanel.Visible = invite ~= nil
+	setShown(invitePanel, invite ~= nil)
 	if invite then
 		inviteText.Text = string.format("%s has invited you to their squad.", invite.displayName)
 	end
@@ -416,7 +436,7 @@ local function buildSquad()
 		if invitedBy then
 			Remotes.SquadAnswer:FireServer(invitedBy, accept)
 		end
-		invitePanel.Visible = false
+		setShown(invitePanel, false)
 	end
 	button({
 		Position = UDim2.fromOffset(24, 126),
@@ -438,7 +458,7 @@ end
 
 local function only(shown)
 	for _, each in { playPanel, profilePanel, squadPanel } do
-		each.Visible = each == shown
+		setShown(each, each == shown)
 	end
 end
 
@@ -484,6 +504,8 @@ function Panels.start()
 		TextStrokeTransparency = 0.6,
 		TextXAlignment = Enum.TextXAlignment.Center,
 	}, gui)
+
+	Fit.attach(gui)
 
 	squadLine = text({
 		Position = UDim2.fromOffset(20, 48),
