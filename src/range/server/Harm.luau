@@ -24,7 +24,8 @@ function Harm.deal(victim, amount, from, source, weaponName, detail)
 	local shielded = character:FindFirstChildOfClass("ForceField") ~= nil
 	humanoid:TakeDamage(amount)
 
-	Remotes.Damaged:FireClient(victim, amount, from, CombatService.flinchFor(victim, detail.headshot))
+	local knock = CombatService.flinchFor(victim, weaponName, detail.headshot)
+	Remotes.Damaged:FireClient(victim, amount, from, knock)
 	Remotes.RangeHit:FireClient(victim, {
 		taken = true,
 		label = source,
@@ -35,6 +36,7 @@ function Harm.deal(victim, amount, from, source, weaponName, detail)
 		left = humanoid.Health,
 		lethal = humanoid.Health <= 0,
 		shielded = shielded,
+		knock = knock, -- degrees their aim was thrown
 		distance = detail.distance,
 	})
 	if humanoid.Health <= 0 then

@@ -130,13 +130,16 @@ local function assistsOn(victim, killer)
 	return assists
 end
 
--- How far being hit knocks a player's aim, in degrees: nothing while a Cryo
--- Shot is holding it steady.
-function CombatService.flinchFor(victim, headshot)
-	if LoadoutService.isSteady(victim) then
+-- How far a hit from `weaponName` knocks a player's aim, in degrees: less if
+-- their armour covers it (see Loadout.flinch), and nothing while a Cryo Shot
+-- is holding it steady.
+function CombatService.flinchFor(victim, weaponName, headshot)
+	local state = LoadoutService.get(victim)
+	if not state or LoadoutService.isSteady(victim) then
 		return 0
 	end
-	return if headshot then WeaponConfig.Flinch.head else WeaponConfig.Flinch.body
+	local config = WeaponConfig.Weapons[weaponName]
+	return Loadout.flinch(WeaponConfig.Flinch, state.stats, config and config.class, headshot)
 end
 
 function CombatService.applyDamage(victim, amount, attacker, weaponName, headshot)
@@ -153,7 +156,7 @@ function CombatService.applyDamage(victim, amount, attacker, weaponName, headsho
 		hits[attacker] = { at = os.clock(), weapon = weaponName }
 	end
 
-	local flinch = if attacker ~= victim then CombatService.flinchFor(victim, headshot) else 0
+	local flinch = if attacker ~= victim then CombatService.flinchFor(victim, weaponName, headshot) else 0
 
 	local attackerRoot = attacker.Character and attacker.Character:FindFirstChild("HumanoidRootPart")
 	Remotes.Damaged:FireClient(victim, amount, attackerRoot and attackerRoot.Position or nil, flinch)

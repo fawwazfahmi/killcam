@@ -2927,5 +2927,153 @@ test("the range's own code asks only for what is beside it", function()
 	end
 end)
 
+---------------------------------------------------------------- The knock from being hit, and the premium helmet
+
+test("armour that covers a hit halves the knock, and armour that does not leaves all of it", function()
+	local rules = WeaponConfig.Flinch
+	equal(rules.covered > 0 and rules.covered < 1, true, "covered armour takes some of the knock off, not all")
+
+	-- Plate covers rifles, SMGs and handguns; Deflector covers snipers; Light covers nothing.
+	local plate = statsWith({ body = "Plate" })
+	equal(Loadout.flinch(rules, plate, "Rifle", false), rules.body * rules.covered, "Plate against a rifle")
+	equal(Loadout.flinch(rules, plate, "SMG", false), rules.body * rules.covered, "Plate against an SMG")
+	equal(Loadout.flinch(rules, plate, "Sniper", false), rules.body, "Plate does nothing against a sniper")
+	local deflector = statsWith({ body = "Deflector" })
+	equal(Loadout.flinch(rules, deflector, "Sniper", false), rules.body * rules.covered, "Deflector against a sniper")
+	equal(Loadout.flinch(rules, deflector, "Rifle", false), rules.body, "Deflector does nothing against a rifle")
+	local light = statsWith({ body = "Light" })
+	for _, class in { "Rifle", "SMG", "Sniper", "Handgun", "Melee", "Grenade" } do
+		equal(Loadout.flinch(rules, light, class, false), rules.body, "no protection, the whole knock from a " .. class)
+	end
+	equal(Loadout.flinch(rules, plate, "Grenade", false), rules.body, "nothing covers a grenade")
+	equal(Loadout.flinch(rules, plate, nil, false), rules.body, "nor a hit from no weapon at all")
+
+	-- The head is the helmet's business, whatever the body wears.
+	equal(Loadout.flinch(rules, statsWith({ helmet = "Guard", body = "Light" }), "Rifle", true), rules.head * rules.covered, "Guard against a headshot")
+	equal(Loadout.flinch(rules, statsWith({ helmet = "Listener", body = "Plate" }), "Rifle", true), rules.head, "Listener does not protect the head")
+	equal(Loadout.flinch(rules, statsWith({ helmet = "Guard", body = "Light" }), "Rifle", false), rules.body, "and a helmet does nothing for the body")
+
+	-- Whether armour covers a hit is whether it takes damage off it.
+	for _, slot in { "helmet", "body" } do
+		for name in ArmorConfig[slot] do
+			local stats = statsWith({ [slot] = name })
+			for _, class in { "Rifle", "SMG", "Sniper", "Handgun", "Melee", "Grenade" } do
+				for _, headshot in { true, false } do
+					local zone = if headshot then "Head" else "UpperTorso"
+					local protects = Loadout.damage(stats, class, zone, 100) < 100
+					local full = if headshot then rules.head else rules.body
+					local knock = Loadout.flinch(rules, stats, class, headshot)
+					if stats.steady then
+						equal(knock, 0, name .. " keeps the aim steady")
+					else
+						equal(knock < full, protects, string.format("%s against a %s, headshot %s", name, class, tostring(headshot)))
+					end
+				end
+			end
+		end
+	end
+end)
+
+test("the Subzero helmet protects the head like the Guard and stops the knock altogether", function()
+	local rules = WeaponConfig.Flinch
+	local subzero = statsWith({ helmet = "Subzero", body = "Light" })
+	local guard = statsWith({ helmet = "Guard", body = "Light" })
+	equal(subzero.headScale, guard.headScale, "the same head protection")
+	equal(subzero.steady, true, "steady")
+	equal(guard.steady, false, "which the Guard is not")
+	for _, class in { "Rifle", "SMG", "Sniper", "Handgun", "Melee", "Grenade" } do
+		equal(Loadout.flinch(rules, subzero, class, true), 0, "no knock from a headshot by a " .. class)
+		equal(Loadout.flinch(rules, subzero, class, false), 0, "nor from a body hit")
+	end
+	equal(table.find(ArmorConfig.order.helmet, "Subzero") ~= nil, true, "it is listed with the helmets")
+	equal(Loadout.sanitize(WeaponConfig, TacticalConfig, ArmorConfig, loadoutWith({ helmet = "Subzero" })) ~= nil, true, "and can be picked")
+	equal(ArmorConfig.defaults.helmet ~= "Subzero", true, "but nobody starts with it")
+end)
+
+test("a premium option is rented with Robux and never with points", function()
+	local now = 1000000
+	equal(Economy.isFree(ShopConfig, "helmet", "Subzero"), false, "it is not free")
+	equal(Economy.price(ShopConfig, "helmet", "Subzero", 1), nil, "it has no price in points")
+
+	local rich = Economy.newProfile()
+	rich.points = 1000000
+	local bought, why = Economy.buy(ShopConfig, rich, "helmet", "Subzero", 7, now)
+	equal(bought, false, "points do not buy it")
+	equal(why, "NotForSale", "however many there are")
+	equal(rich.points, 1000000, "and none are taken")
+	equal(Economy.owns(ShopConfig, rich, "helmet", "Subzero", now), false, "so it is not owned")
+	local wanted = loadoutWith({ helmet = "Subzero" })
+	equal(Economy.ownsAll(ShopConfig, rich, wanted, now), false, "and a loadout with it is refused")
+	equal(Economy.fallback(ShopConfig, rich, wanted, loadoutWith(), now).helmet, ArmorConfig.defaults.helmet, "and falls back to the free helmet")
+
+	-- Everything premium is a real option, sold by the day, and not also sold for points.
+	local seen = {}
+	for field, options in ShopConfig.robux do
+		equal(ShopConfig.timing[field] ~= nil, true, field .. " is a loadout field with a timing")
+		for option, offers in options do
+			local _, item = Catalog.find(Catalog.fields(WeaponConfig, TacticalConfig, ArmorConfig), field .. "/" .. option)
+			equal(item ~= nil, true, field .. "." .. option .. " is a real option")
+			equal(ShopConfig.prices[field] == nil or ShopConfig.prices[field][option] == nil, true, option .. " is not sold for points too")
+			equal(#offers > 0, true, option .. " has a length on sale")
+			for _, offer in offers do
+				equal(offer.amount > 0 and offer.amount % 1 == 0, true, option .. " is rented in whole days")
+				equal(type(offer.productId), "number", option .. " names a product")
+				if offer.productId ~= 0 then
+					equal(seen[offer.productId], nil, "one product, one thing sold")
+					seen[offer.productId] = true
+				end
+			end
+		end
+	end
+	equal(#Economy.robuxOffers(ShopConfig, "helmet", "Subzero") > 0, true, "the Subzero is one of them")
+	equal(Economy.robuxOffers(ShopConfig, "helmet", "Guard"), nil, "the Guard is not")
+	equal(Economy.robuxOffers(ShopConfig, "primary", "AK47"), nil, "nor is anything sold for points")
+end)
+
+test("a Robux rental puts its days on the profile once, however often it is reported", function()
+	local config = with(ShopConfig, {
+		robux = { helmet = { Subzero = { { amount = 1, productId = 501 }, { amount = 7, productId = 507 } } } },
+	})
+	local day = ShopConfig.terms.calendar.unit
+	local now = 1000000
+
+	equal(Economy.offerFor(config, 0), nil, "product 0 sells nothing")
+	equal(Economy.offerFor(ShopConfig, 0), nil, "so a length not yet on sale cannot be bought by naming it")
+	equal(Economy.offerFor(config, 999), nil, "nor does a product that is not listed")
+	local week = Economy.offerFor(config, 507)
+	equal(week.field == "helmet" and week.option == "Subzero" and week.amount == 7, true, "the week's product is the week")
+
+	local profile = Economy.newProfile()
+	equal(Economy.grantRental(config, profile, week, "purchase-1", now), true, "first report")
+	equal(Economy.owns(config, profile, "helmet", "Subzero", now), true, "it is owned")
+	equal(Economy.timeLeft(profile, "helmet", "Subzero", now), 7 * day, "for a week")
+	equal(profile.rentals["helmet/Subzero"].expiresAt, nil, "and the clock has not started")
+	equal(profile.points, 0, "no points are involved")
+
+	equal(Economy.grantRental(config, profile, week, "purchase-1", now), false, "the same purchase again")
+	equal(Economy.timeLeft(profile, "helmet", "Subzero", now), 7 * day, "adds nothing")
+	equal(Economy.grant(profile, "revives", "purchase-1"), false, "and a receipt is never counted twice, whatever it was for")
+
+	equal(Economy.grantRental(config, profile, Economy.offerFor(config, 501), "purchase-2", now), true, "another day")
+	equal(Economy.timeLeft(profile, "helmet", "Subzero", now), 8 * day, "is added on")
+
+	-- Worn into a match, it runs by the calendar like any armour, and can be topped up.
+	equal(Economy.use(config, profile, "helmet", "Subzero", now, {}), true, "it can be worn")
+	equal(profile.rentals["helmet/Subzero"].expiresAt, now + 8 * day, "which starts the clock")
+	Economy.grantRental(config, profile, week, "purchase-3", now + day)
+	equal(Economy.timeLeft(profile, "helmet", "Subzero", now + day), 14 * day, "a week bought a day in leaves fourteen days")
+	equal(Economy.owns(config, profile, "helmet", "Subzero", now + 16 * day), false, "and then it runs out")
+
+	-- Run out, told about, and rented again: there is nothing left to tell.
+	local lapsed = Economy.newProfile()
+	Economy.grantRental(config, lapsed, Economy.offerFor(config, 501), "purchase-4", now)
+	Economy.use(config, lapsed, "helmet", "Subzero", now, {})
+	Economy.prune(lapsed, now + 2 * day)
+	equal(lapsed.expired["helmet/Subzero"], true, "it is noted as run out")
+	Economy.grantRental(config, lapsed, week, "purchase-5", now + 2 * day)
+	equal(lapsed.expired["helmet/Subzero"], nil, "renting it again clears the note")
+	equal(Economy.owns(config, lapsed, "helmet", "Subzero", now + 2 * day), true, "and it is owned again")
+end)
+
 print(string.format("%d passed, %d failed", passed, failed))
 process.exit(failed == 0 and 0 or 1)

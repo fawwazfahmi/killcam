@@ -422,7 +422,9 @@ check("the panel can take health off, heal, and hit with any gun through armour"
 	local plate = ArmorConfig.body[loadout.loadout.body].classScale.Rifle or 1
 	expect(near(hit.amount, Weapons.M16.damage.UpperTorso * plate), "through armour it did " .. tostring(hit.amount))
 	expect(near(humanoid().Health, FULL - hit.amount), "health is " .. tostring(humanoid().Health))
-	expect(#hurts > flinches and hurts[#hurts].flinch == WeaponConfig.Flinch.body, "being hit did not throw the aim")
+	-- The armour that took damage off the hit takes the edge off the knock too.
+	local knock = WeaponConfig.Flinch.body * (if plate < 1 then WeaponConfig.Flinch.covered else 1)
+	expect(#hurts > flinches and hurts[#hurts].flinch == knock, "being hit threw the aim " .. tostring(hurts[#hurts] and hurts[#hurts].flinch))
 	ask("Heal")
 end)
 
@@ -502,6 +504,64 @@ check("a loadout change waits for the next spawn, or with the switch on happens 
 	expect(humanoid().Health > 0, "changing loadout killed the player")
 	setCheat("instant", false)
 	task.wait(0.6) -- the draw
+end)
+
+check("how far a hit throws the aim follows the armour worn, and the Subzero stops it", function()
+	local rules = WeaponConfig.Flinch
+	local whole, less = rules.body, rules.body * rules.covered
+	setCheat("instant", true)
+
+	local function wear(helmet, body)
+		local wanted = table.clone(freshLoadout().choice)
+		wanted.helmet, wanted.body = helmet, body
+		Remotes.SelectLoadout:FireServer(wanted)
+		waitFor("the armour to be on", function()
+			return loadout.loadout.helmet == helmet and loadout.loadout.body == body
+		end)
+	end
+	-- One hit from the panel. Returns how far it threw the aim, and the hit.
+	local function knockFrom(weapon, aim)
+		local before, felt = #hits, #hurts
+		ask("Hit", weapon, aim)
+		local hit = waitFor("the hit", function()
+			return taken(before)[1]
+		end)
+		waitFor("the knock to reach the view", function()
+			return #hurts > felt
+		end)
+		expect(hurts[#hurts].flinch == hit.knock, "the readout says " .. tostring(hit.knock) .. " and the view was thrown " .. tostring(hurts[#hurts].flinch))
+		task.wait(0.08)
+		return hit.knock, hit
+	end
+	local function same(got, wanted, what)
+		expect(got == wanted, string.format("%s: thrown %s, should be %s", what, tostring(got), tostring(wanted)))
+	end
+
+	wear("Guard", "Plate")
+	same(knockFrom("M16", "Chest"), less, "a rifle against Plate")
+	same(knockFrom("MP5", "Stomach"), less, "an SMG against Plate")
+	same(knockFrom("AWP", "Chest"), whole, "a sniper against Plate, which does not cover it")
+	same(knockFrom("M16", "Head"), rules.head * rules.covered, "a headshot against the Guard")
+
+	wear("Listener", "Deflector")
+	same(knockFrom("AWP", "Chest"), less, "a sniper against Deflector")
+	same(knockFrom("M16", "Chest"), whole, "a rifle against Deflector, which does not cover it")
+	same(knockFrom("M16", "Head"), rules.head, "a headshot against the Listener, which does not protect the head")
+
+	wear("Listener", "Light")
+	same(knockFrom("M16", "Legs"), whole, "a rifle against no protection")
+	same(knockFrom("AWP", "Chest"), whole, "a sniper against no protection")
+
+	wear("Subzero", "Light")
+	local knock, head = knockFrom("AWP", "Head")
+	same(knock, 0, "a sniper to the head of a Subzero")
+	expect(head.amount == Weapons.AWP.damage.Head * ArmorConfig.helmet.Subzero.headScale, "the Subzero let a headshot do " .. tostring(head.amount))
+	same(knockFrom("M16", "Chest"), 0, "a rifle to the chest under a Subzero")
+	same(knockFrom("Deagle", "Legs"), 0, "a handgun to the legs under a Subzero")
+	say(string.format("      knock: %.1f uncovered, %.1f covered, head %.1f or %.1f, Subzero 0", whole, less, rules.head, rules.head * rules.covered))
+
+	wear("Listener", "Plate")
+	setCheat("instant", false)
 end)
 
 -- Places, placing, the knife and the grenade -----------------------------------

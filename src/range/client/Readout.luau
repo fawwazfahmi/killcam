@@ -1,7 +1,7 @@
 -- The test range's damage readout. Every hit landed on a dummy, and every hit
 -- taken, is listed down the left of the screen in full: the weapon, where it
--- landed, from how far, what it does before armour and what it did after, and
--- the health left. Under the list are the totals for the run of hits in
+-- landed, from how far, what it does before armour and what it did after, the
+-- health left, and for a hit taken how far it threw the aim. Under the list are the totals for the run of hits in
 -- progress, and a number floats up off each hit where it landed. The sums are
 -- Shared.Logic.Readout.
 
@@ -42,7 +42,8 @@ local COLUMNS = {
 	{ key = "zone", head = "WHERE", width = 78 },
 	{ key = "distance", head = "STUDS", width = 52 },
 	{ key = "damage", head = "DAMAGE", width = 104 },
-	{ key = "left", head = "LEFT", width = 64 },
+	{ key = "left", head = "LEFT", width = 76 },
+	{ key = "knock", head = "KNOCK", width = 50 },
 }
 local WIDTH = PAD * 2
 for _, column in COLUMNS do
@@ -107,6 +108,8 @@ local function cells(hit)
 		-- Before armour, then after it, where the two differ.
 		damage = if hit.raw ~= hit.amount then number(hit.raw) .. "  >  " .. number(hit.amount) else number(hit.amount),
 		left = left,
+		-- Only a hit taken throws anybody's aim: a dummy has none.
+		knock = if hit.knock then string.format("%.1f", hit.knock) else "",
 	}
 end
 

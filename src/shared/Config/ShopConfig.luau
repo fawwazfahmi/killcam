@@ -133,4 +133,21 @@ return {
 		gloves = { Gunner = 400, Grenadier = 350, Trigger = 300 },
 		boots = { Runner = 200, Marcher = 200, Cushion = 150 },
 	},
+
+	-- The premium options: rented with Robux, never with points. By loadout
+	-- field then option, each lists the lengths on sale, and every length is
+	-- its own developer product: create one in the Creator Dashboard for each,
+	-- set its price in Robux there, and put its id here. `amount` is in the
+	-- field's usual units (days, for armour), and the time runs as any other
+	-- rental of that field does. A length whose product is 0 is not on sale
+	-- yet: the shop shows it, and it cannot be bought.
+	robux = {
+		helmet = {
+			Subzero = {
+				{ amount = 1, productId = 0 },
+				{ amount = 7, productId = 0 },
+				{ amount = 30, productId = 0 },
+			},
+		},
+	},
 }

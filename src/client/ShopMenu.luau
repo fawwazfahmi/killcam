@@ -4,8 +4,10 @@
 --
 -- A category down the left, its items on the right. Each item shows what it
 -- does, what it costs, and how long is left on it. Weapons are rented by the
--- hour of use, everything else by the day (see ShopConfig).
+-- hour of use, everything else by the day (see ShopConfig). A premium item is
+-- rented with Robux: its buttons open Roblox's own purchase window.
 
+local MarketplaceService = game:GetService("MarketplaceService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -49,6 +51,8 @@ local categoryButtons = {}
 local chosen = nil -- the category being shown
 local profile = nil
 local clockOffset = 0
+local robuxPrices = {} -- [product id] = its price in Robux, once Roblox has told us; false while asking
+local refresh
 
 local function make(className, properties, parent)
 	local instance = Instance.new(className)
@@ -123,6 +127,62 @@ local function holding(field, key)
 	return "Owned", if rental.expiresAt then left .. " left" else left .. ", not started"
 end
 
+-- What a developer product costs, or nil until Roblox has said. Asks once,
+-- and redraws the shop when the answer comes.
+local function robuxPrice(productId)
+	if robuxPrices[productId] == nil then
+		robuxPrices[productId] = false
+		task.spawn(function()
+			local ok, info = pcall(MarketplaceService.GetProductInfo, MarketplaceService, productId, Enum.InfoType.Product)
+			if ok and info and info.PriceInRobux then
+				robuxPrices[productId] = info.PriceInRobux
+				refresh()
+			else
+				robuxPrices[productId] = nil -- ask again the next time the shop is drawn
+			end
+		end)
+	end
+	return robuxPrices[productId] or nil
+end
+
+-- The buttons of a premium item: one for each length it is rented for.
+local function robuxButtons(row, category, key, item, terms)
+	local offers = Economy.robuxOffers(ShopConfig, category.field, key)
+	text({
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -16, 0, 10),
+		Size = UDim2.fromOffset(200, 20),
+		Text = "PREMIUM   -   rented with Robux",
+		TextSize = SIZE.small,
+		TextColor3 = ACCENT,
+		TextXAlignment = Enum.TextXAlignment.Right,
+	}, row)
+
+	local width, gap = 104, 8
+	for place, offer in offers do
+		local onSale = offer.productId ~= 0
+		local price = onSale and robuxPrice(offer.productId)
+		local label = string.format("%d%s", offer.amount, terms.label)
+		button({
+			AnchorPoint = Vector2.new(1, 1),
+			Position = UDim2.new(1, -16 - (#offers - place) * (width + gap), 1, -10),
+			Size = UDim2.fromOffset(width, 30),
+			BackgroundColor3 = if onSale then ACCENT else RAISED,
+			TextColor3 = if onSale then INK else MUTED,
+			Text = if not onSale then label .. "   SOON" elseif price then string.format("%s   R$ %d", label, price) else label .. "   R$",
+			TextSize = SIZE.small,
+		}, row, function()
+			if onSale then
+				-- Roblox's own window takes it from here; the time arrives with the next profile update.
+				MarketplaceService:PromptProductPurchase(player, offer.productId)
+				noteLabel.Text = string.format("Renting %s for %d%s...", item.displayName, offer.amount, terms.label)
+			else
+				noteLabel.Text = string.format("%s is not on sale yet", item.displayName)
+			end
+		end)
+	end
+end
+
 local function showCategory(category)
 	chosen = category
 	for field, entry in categoryButtons do
@@ -170,7 +230,9 @@ local function showCategory(category)
 			TextColor3 = if state == "Owned" then ACCENT else MUTED,
 		}, row)
 
-		if state ~= "Owned" or not Economy.isFree(ShopConfig, category.field, key) then
+		if Economy.robuxOffers(ShopConfig, category.field, key) then
+			robuxButtons(row, category, key, item, terms)
+		elseif state ~= "Owned" or not Economy.isFree(ShopConfig, category.field, key) then
 			local unit = ShopConfig.prices[category.field][key]
 			text({
 				AnchorPoint = Vector2.new(1, 0),
@@ -203,7 +265,7 @@ local function showCategory(category)
 	end
 end
 
-local function refresh()
+function refresh()
 	if profile then
 		pointsLabel.Text = string.format("%d POINTS      %s", profile.points, string.upper(Rank.of(ShopConfig.ranks, profile.level).title))
 	end

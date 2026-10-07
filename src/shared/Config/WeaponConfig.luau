@@ -65,8 +65,11 @@ WeaponConfig.Validation = {
 	meleeTolerance = 4, -- extra studs of knife reach allowed for latency
 }
 
--- Degrees the victim's aim is knocked up when hit. A Cryo Shot cancels it.
-WeaponConfig.Flinch = { body = 1.2, head = 2.6 }
+-- Degrees the victim's aim is knocked up when hit. Armour that covers the hit
+-- (a helmet that protects the head, for a headshot; body armour that protects
+-- against that class of weapon, for anything else) leaves `covered` of it. A
+-- Cryo Shot cancels it, and so does a helmet that keeps the aim steady.
+WeaponConfig.Flinch = { body = 1.2, head = 2.6, covered = 0.5 }
 
 WeaponConfig.Weapons = {
 	-- The rifle everybody starts with, and the one the others are measured against.

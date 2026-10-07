@@ -88,10 +88,17 @@ function Economy.shopField(config, field)
 	return config.aliases and config.aliases[field] or field
 end
 
--- True if nobody has to pay for this option.
+-- The lengths an option is rented for with Robux, { { amount, productId } },
+-- or nil if it is not one of the premium ones (see ShopConfig.robux).
+function Economy.robuxOffers(config, field, option)
+	local offers = config.robux and config.robux[Economy.shopField(config, field)]
+	return offers and offers[option] or nil
+end
+
+-- True if nobody has to pay for this option, in points or in Robux.
 function Economy.isFree(config, field, option)
 	local prices = config.prices[Economy.shopField(config, field)]
-	return not (prices and prices[option])
+	return not (prices and prices[option]) and Economy.robuxOffers(config, field, option) == nil
 end
 
 -- How rentals of this field run down and what lengths are sold: an entry of
@@ -165,19 +172,9 @@ function Economy.timeLeft(profile, field, option, now)
 	return math.max(rental.expiresAt - now, 0)
 end
 
--- Rents an option. Buying more of something already held adds to it.
--- Returns true, or false and why: "NotForSale" or "NotEnoughPoints".
-function Economy.buy(config, profile, field, option, amount, now)
-	local cost = Economy.price(config, field, option, amount)
-	if not cost then
-		return false, "NotForSale"
-	end
-	if profile.points < cost then
-		return false, "NotEnoughPoints"
-	end
-	Economy.prune(profile, now)
-	profile.points -= cost
-
+-- Puts `amount` units of rental (hours of use, or days) on an option. More of
+-- something already held adds to it.
+local function addTime(config, profile, field, option, amount)
 	local seconds = amount * Economy.terms(config, field).unit
 	local name = Economy.key(field, option)
 	local rental = profile.rentals[name]
@@ -189,6 +186,21 @@ function Economy.buy(config, profile, field, option, amount, now)
 	else
 		rental.seconds += seconds
 	end
+end
+
+-- Rents an option with points. Returns true, or false and why: "NotForSale"
+-- (which is what a premium option is, for points) or "NotEnoughPoints".
+function Economy.buy(config, profile, field, option, amount, now)
+	local cost = Economy.price(config, field, option, amount)
+	if not cost then
+		return false, "NotForSale"
+	end
+	if profile.points < cost then
+		return false, "NotEnoughPoints"
+	end
+	Economy.prune(profile, now)
+	profile.points -= cost
+	addTime(config, profile, field, option, amount)
 	return true
 end
 
@@ -300,14 +312,15 @@ end
 
 -- Things paid for with Robux ----------------------------------------------------
 -- A purchase becomes a count on the profile ("revives" or "swaps") and is
--- spent from there, so one that arrives too late to use is kept, not lost.
+-- spent from there, so one that arrives too late to use is kept, not lost. Or
+-- it is a rental of one of the premium options, and becomes time on that.
 
 local RECEIPTS_KEPT = 30
 
--- A purchase of one `kind` has been paid for. `receipt` names the purchase,
--- and the same one is only ever counted once however often it is reported.
--- Returns whether it was new.
-function Economy.grant(profile, kind, receipt)
+-- Notes that the purchase `receipt` names has been paid for. Returns whether
+-- it was new: the same one is only ever counted once, however often Roblox
+-- reports it.
+local function record(profile, receipt)
 	local receipts = profile.receipts or {}
 	profile.receipts = receipts
 	if table.find(receipts, receipt) then
@@ -317,7 +330,45 @@ function Economy.grant(profile, kind, receipt)
 	while #receipts > RECEIPTS_KEPT do
 		table.remove(receipts, 1)
 	end
+	return true
+end
+
+-- A purchase of one `kind` has been paid for. Returns whether it was new.
+function Economy.grant(profile, kind, receipt)
+	if not record(profile, receipt) then
+		return false
+	end
 	profile[kind] = (profile[kind] or 0) + 1
+	return true
+end
+
+-- What developer product `productId` rents: { field, option, amount }, or nil
+-- if it is not one of the premium rentals. Product 0 is nothing's.
+function Economy.offerFor(config, productId)
+	if productId == 0 then
+		return nil
+	end
+	for field, options in config.robux or {} do
+		for option, offers in options do
+			for _, offer in offers do
+				if offer.productId == productId then
+					return { field = field, option = option, amount = offer.amount }
+				end
+			end
+		end
+	end
+	return nil
+end
+
+-- A premium rental has been paid for: `offer` is what Economy.offerFor gave
+-- for the product. Puts the time on the profile. Returns whether the purchase
+-- was new.
+function Economy.grantRental(config, profile, offer, receipt, now)
+	if not record(profile, receipt) then
+		return false
+	end
+	Economy.prune(profile, now)
+	addTime(config, profile, offer.field, offer.option, offer.amount)
 	return true
 end
 

@@ -1,9 +1,19 @@
 -- The four armour slots. A player picks one piece per slot; each piece changes
 -- a few numbers and nothing else. Plain Luau only, so the unit tests can load it.
 --
+-- Being hit throws a player's aim (WeaponConfig.Flinch). A piece that takes
+-- damage off a hit takes some of the knock off it too: nothing here says so,
+-- it follows from `headScale` and `classScale` (see Loadout.flinch).
+--
+-- Being hit throws a player's aim (WeaponConfig.Flinch). A piece that takes
+-- damage off a hit takes some of the knock off it too: nothing here says so,
+-- it follows from `headScale` and `classScale` (see Loadout.flinch).
+--
 -- What a piece may carry (see Shared.Logic.Loadout for how they combine):
 --   headScale      damage taken from headshots is multiplied by this
 --   classScale     damage taken to the body from a weapon class is multiplied by this
+--   steady         being hit never throws this player's aim
+--   steady         being hit never throws this player's aim
 --   speed          movement speed is multiplied by this
 --   speedWith      extra speed multiplier while holding a weapon of a class
 --   equipScale     weapon draw time is multiplied by this
@@ -19,7 +29,7 @@ return {
 	slots = { "helmet", "body", "gloves", "boots" },
 	titles = { helmet = "Helmet", body = "Body armour", gloves = "Gloves", boots = "Boots" },
 	order = {
-		helmet = { "Guard", "Listener" },
+		helmet = { "Guard", "Listener", "Subzero" },
 		body = { "Plate", "Deflector", "Light" },
 		gloves = { "Quick", "Gunner", "Grenadier", "Trigger" },
 		boots = { "Soft", "Runner", "Marcher", "Cushion" },
@@ -29,6 +39,20 @@ return {
 	helmet = {
 		Guard = { displayName = "Guard", note = "Headshots do half damage", headScale = 0.5 },
 		Listener = { displayName = "Listener", note = "Hear footsteps from further away", hearing = 1.6 },
+		-- The premium helmet: rented with Robux, not points (see ShopConfig.robux).
+		Subzero = {
+			displayName = "Subzero",
+			note = "Headshots do half damage, and being hit never throws your aim",
+			headScale = 0.5,
+			steady = true,
+		},
+		-- The premium helmet: rented with Robux, not points (see ShopConfig.robux).
+		Subzero = {
+			displayName = "Subzero",
+			note = "Headshots do half damage, and being hit never throws your aim",
+			headScale = 0.5,
+			steady = true,
+		},
 	},
 
 	body = {

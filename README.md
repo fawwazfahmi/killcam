@@ -305,6 +305,29 @@ still be changed there (`matchSwap` in `ShopConfig`):
   or grenade.
   To add a piece, add an entry to its slot and to that slot's `order`.
 
+**Being hit throws your aim.** A hit knocks the view up: 1.2 degrees for a
+body hit and 2.6 for a headshot (`Flinch` in `WeaponConfig`). A run of hits
+does not pile up: the view is never thrown further than one hit throws it.
+What you wear decides how much of it you get:
+
+| Wearing | The knock |
+|---|---|
+| Armour that does not cover the hit | All of it |
+| Armour that covers the hit | Half of it (`Flinch.covered`) |
+| The Subzero helmet | None, from anything |
+
+Armour covers a hit when it takes damage off it, and nothing else is written
+down to say so: a helmet that protects the head covers headshots, and body
+armour covers the classes of weapon it protects against. So Plate takes the
+edge off rifles, SMGs and handguns but not snipers, Deflector the other way
+round, and Light, which protects against nothing, takes the edge off nothing.
+The rule is `Loadout.flinch`. A Cryo Shot stops the knock for as long as it
+lasts, whatever is worn.
+
+**The Subzero** is the premium helmet: it halves headshots like the Guard,
+and being hit never throws your aim. It is rented with Robux (see the shop,
+below).
+
 **Ammunition.** Every gun starts a life with a full magazine and three more in
 reserve (the rifle is 30/90). A reload tops the magazine up from the reserve
 and wastes nothing. There is no other way to get more: when a gun is dry, the
@@ -477,7 +500,8 @@ still throws your aim; it just takes nothing off.
 
 **The readout**, down the left of the screen, lists every hit landed and every
 hit taken: the weapon, where it landed, from how far, the damage before armour
-and after it, and the health left. Under the list are the totals for the run
+and after it, the health left, and for a hit taken how far it threw your aim.
+Under the list are the totals for the run
 of hits in progress: how many, how much, the damage a second, and once the
 dummy is dead how many hits and how long it took. Until then it says what the
 numbers give on paper for hits like the last one. A number also floats up off
@@ -566,6 +590,18 @@ only what you own. There is no shop in a match.
 - **Armour and tactical items** are rented by the day: 1, 2, 3, 5 or 7. The
   clock starts the first time you spawn with the item, and then runs whether
   or not you are online.
+
+- **Premium items are rented with Robux**, and cannot be had for points. They
+  are listed in `robux` in `ShopConfig`, with the lengths each is rented for;
+  the time then runs as it does for anything else of its kind (by the day,
+  for the Subzero helmet). **Each length is switched off until you give it a
+  product:** create a developer product in the Creator Dashboard for each
+  one, set its price in Robux there, and put its id in place of the 0. Until
+  then the shop shows the length greyed out, marked SOON. The price shown on
+  the button is read from Roblox, so it is never out of step with what is
+  charged. A purchase is added to the profile and saved before Roblox is told
+  it is complete, and one reported late is honoured on whichever server the
+  buyer has reached by then. Purchases can only be tried in a published place.
 
 The default loadout is free. The loadout you pick is saved, so a pick made in
 the lobby is what you spawn with in the match.

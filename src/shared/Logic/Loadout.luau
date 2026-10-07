@@ -127,6 +127,7 @@ function Loadout.stats(armor, loadout)
 		footsteps = 1,
 		hearing = 1,
 		fallScale = 1,
+		steady = false,
 		secondPrimary = false,
 		secondNade = false,
 	}
@@ -139,6 +140,8 @@ function Loadout.stats(armor, loadout)
 		stats.footsteps *= piece.footsteps or 1
 		stats.hearing *= piece.hearing or 1
 		stats.fallScale *= piece.fallScale or 1
+		stats.steady = stats.steady or piece.steady == true
+		stats.steady = stats.steady or piece.steady == true
 		stats.secondPrimary = stats.secondPrimary or piece.secondPrimary == true
 		stats.secondNade = stats.secondNade or piece.secondNade == true
 		for class, scale in piece.classScale or {} do
@@ -299,6 +302,40 @@ function Loadout.damage(stats, class, zone, amount)
 		return amount * stats.headScale
 	end
 	return amount * (stats.classScale[class] or 1)
+end
+
+-- How far a hit knocks the victim's aim, in degrees. `rules` is
+-- WeaponConfig.Flinch. Armour that covers the hit takes the edge off: a
+-- helmet that protects the head, for a headshot, and for anything else body
+-- armour that protects against that class of weapon. Whether a piece covers a
+-- hit is read from whether it takes damage off it, so the two cannot disagree.
+-- Armour that covers nothing, or the wrong weapon, leaves the whole knock; a
+-- helmet that keeps the aim steady leaves none.
+function Loadout.flinch(rules, stats, class, headshot)
+	if stats.steady then
+		return 0
+	end
+	if headshot then
+		return if stats.headScale < 1 then rules.head * rules.covered else rules.head
+	end
+	return if (stats.classScale[class] or 1) < 1 then rules.body * rules.covered else rules.body
+end
+
+-- How far a hit knocks the victim's aim, in degrees. `rules` is
+-- WeaponConfig.Flinch. Armour that covers the hit takes the edge off: a
+-- helmet that protects the head, for a headshot, and for anything else body
+-- armour that protects against that class of weapon. Whether a piece covers a
+-- hit is read from whether it takes damage off it, so the two cannot disagree.
+-- Armour that covers nothing, or the wrong weapon, leaves the whole knock; a
+-- helmet that keeps the aim steady leaves none.
+function Loadout.flinch(rules, stats, class, headshot)
+	if stats.steady then
+		return 0
+	end
+	if headshot then
+		return if stats.headScale < 1 then rules.head * rules.covered else rules.head
+	end
+	return if (stats.classScale[class] or 1) < 1 then rules.body * rules.covered else rules.body
 end
 
 -- Movement speed multiplier while holding a weapon of `class`.

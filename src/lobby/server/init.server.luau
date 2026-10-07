@@ -18,6 +18,7 @@ local WeaponModels = require(Shared.WeaponModels)
 
 local MapBuilder = require(script.MapBuilder)
 local ProfileStore = require(script.ProfileStore)
+local PurchaseService = require(script.PurchaseService)
 local QueueService = require(script.QueueService)
 local SquadService = require(script.SquadService)
 
@@ -290,5 +291,6 @@ task.spawn(function()
 end)
 
 ProfileStore.init()
+PurchaseService.init() -- the shop's premium rentals are paid for in Robux
 SquadService.init()
 QueueService.init(ProfileStore, SquadService)
